@@ -130,7 +130,8 @@
   /* 拼图 */
   .slider { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:270px; margin:16px auto; touch-action:none; }
   .slider .tile { aspect-ratio:1; border-radius:12px; background:var(--blue); color:#fff; font-size:28px;
-    font-weight:800; display:flex; align-items:center; justify-content:center; transition:background .2s; cursor:pointer; }
+    font-weight:800; display:flex; align-items:center; justify-content:center; transition:background .2s; cursor:pointer;
+    touch-action:none; }
   .slider .tile.blank { background:#e5e7eb; cursor:default; }
   .slider .tile.correct { background:var(--green); }
 
@@ -144,6 +145,7 @@
   .mem-card.flip .back { display:none; }
   .mem-card.matched { background:#d1fae5; border-color:var(--green); opacity:.85; }
   .mem-card.matched .face { display:inline; }
+  .mem-card.matched .back { display:none; }
 
   /* 找不同 */
   .spot-wrap { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:520px; margin:16px auto; }
@@ -859,6 +861,7 @@ function backPuzzleList(){
 
 /* —— 滑块拼图 —— */
 let slider={board:[], blank:8};
+let sliderSwipedAt=0;   // 记录刚发生滑动的时刻，避免滑动后的 click 误触发移动
 function startSlider(){
   const goal=[1,2,3,4,5,6,7,8,0];
   slider.board=goal.slice(); slider.blank=8;
@@ -885,6 +888,7 @@ function renderSlider(){
     const d=document.createElement('div');
     d.className='tile'+(tile===0?' blank':'');
     if(tile!==0) d.textContent=tile;
+    d.onclick=()=>{ if(Date.now()-sliderSwipedAt<500) return; sliderTryMove(i); };
     grid.appendChild(d);
   });
   bindSliderGestures(grid);
@@ -909,21 +913,30 @@ function sliderSwipe(dx,dy){
   }
   if(target>=0) sliderTryMove(target);
 }
-/* 用 pointer 事件同时支持点击与滑动（手机 / 桌面通用） */
+/* 用 Touch 事件支持手机滑动（比 pointer 在安卓 WebView / App 内置浏览器中更可靠），
+   轻点仍交给 click 处理 */
 function bindSliderGestures(grid){
-  let start=null;
-  grid.addEventListener('pointerdown', e=>{
-    start={x:e.clientX, y:e.clientY, idx:Array.from(grid.children).indexOf(e.target)};
-    if(grid.setPointerCapture) grid.setPointerCapture(e.pointerId);
-  });
-  grid.addEventListener('pointerup', e=>{
+  let start=null, moved=false;
+  grid.addEventListener('touchstart', e=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0];
+    start={x:t.clientX, y:t.clientY};
+    moved=false;
+  }, {passive:true});
+  grid.addEventListener('touchmove', e=>{
+    if(!start || e.touches.length!==1) return;
+    const t=e.touches[0];
+    if(!moved && (Math.abs(t.clientX-start.x)>10 || Math.abs(t.clientY-start.y)>10)) moved=true;
+    if(moved) e.preventDefault();   // 阻止页面滚动，同时也取消随后的 click
+  }, {passive:false});
+  grid.addEventListener('touchend', e=>{
     if(!start) return;
-    const dx=e.clientX-start.x, dy=e.clientY-start.y, idx=start.idx;
-    start=null;
-    if(Math.abs(dx)<24 && Math.abs(dy)<24) sliderTryMove(idx);  // 轻点
-    else sliderSwipe(dx,dy);                                    // 滑动
+    const t=e.changedTouches[0];
+    const dx=t.clientX-start.x, dy=t.clientY-start.y, m=moved;
+    start=null; moved=false;
+    if(m){ sliderSwipedAt=Date.now(); sliderSwipe(dx,dy); }
   });
-  grid.addEventListener('pointercancel', ()=>{ start=null; });
+  grid.addEventListener('touchcancel', ()=>{ start=null; moved=false; });
 }
 
 /* —— 记忆配对 —— */
