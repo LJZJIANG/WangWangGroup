@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<title>汪汪队数学益智小游戏</title>
+<style>
+  :root {
+    --blue:#1f6feb; --red:#e63b2e; --yellow:#ffb020; --green:#2e9e5b;
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#eef4ff;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; }
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  body {
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    color:var(--ink); background:linear-gradient(180deg,#dbeafe 0%,#f5f9ff 40%,#fff1d6 100%);
+    min-height:100vh; line-height:1.6; overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    overscroll-behavior-y:none;
+  }
+  button { font-family:inherit; cursor:pointer; -webkit-user-select:none; user-select:none; }
+  button, .char-card, .level-card, .pz-card, .qopt, .tile, .mem-card, .spot-cell, .maze-cell, .sort-bin, .order-card, .icon-btn, .pc-tab, .toggle {
+    touch-action:manipulation;
+  }
+  .app { max-width:960px; margin:0 auto; padding:0 14px 40px; }
+
+  /* 顶部栏 */
+  .topbar { display:flex; align-items:center; gap:10px; padding:14px 4px 8px; }
+  .topbar .logo { font-size:22px; font-weight:800; color:var(--red); text-shadow:1px 1px 0 #fff; }
+  .topbar .timer { margin-left:auto; background:#fff; border:2px solid var(--yellow);
+    border-radius:999px; padding:4px 12px; font-weight:700; font-size:14px; color:#92400e; }
+  .topbar .timer.low { background:#fee2e2; border-color:var(--red); color:#b91c1c; }
+  .icon-btn { background:#fff; border:2px solid var(--line); border-radius:12px; width:48px; height:48px;
+    font-size:20px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  @media (hover:hover){ .icon-btn:hover { border-color:var(--blue); } }
+
+  .screen { display:none; }
+  .screen.active { display:block; }
+
+  h1.pg { font-size:26px; margin:8px 0 4px; }
+  .pg-sub { color:var(--muted); font-size:14px; margin:0 0 16px; }
+
+  /* 大厅 */
+  .lobby-hero { text-align:center; padding:8px 0 4px; }
+  .lobby-hero .big-char { font-size:clamp(64px,22vw,88px); display:inline-block; }
+  .lobby-hero .big-char img { width:clamp(64px,22vw,88px); height:clamp(64px,22vw,88px);
+    object-fit:cover; border-radius:50%; display:inline-block; }
+  .lobby-hero .say { background:#fff; border-radius:16px; border:2px solid var(--yellow);
+    padding:10px 18px; margin:8px auto 0; max-width:420px; font-size:16px; font-weight:600; }
+  .char-row { display:flex; gap:10px; overflow-x:auto; padding:14px 2px; touch-action:pan-x pan-y; -webkit-overflow-scrolling:touch; }
+  .char-card { flex:0 0 92px; background:#fff; border:3px solid #fff; border-radius:16px;
+    padding:10px 6px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,.06); cursor:pointer;
+    transition:transform .15s, border-color .15s; }
+  @media (hover:hover){ .char-card:hover { transform:translateY(-4px); } }
+  .char-card.sel { border-color:var(--blue); }
+  .char-avatar { width:58px; height:58px; border-radius:50%; margin:0 auto 6px; font-size:32px;
+    display:flex; align-items:center; justify-content:center; color:#fff; }
+  .char-card .nm { font-weight:700; font-size:14px; }
+  .char-card .role { font-size:11px; color:var(--muted); }
+  .big-btns { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0; }
+  .big-btn { border:none; border-radius:20px; padding:22px 10px; color:#fff; font-size:20px; font-weight:800;
+    box-shadow:0 6px 0 rgba(0,0,0,.15); transition:transform .1s; }
+  .btn-math { background:var(--red); }
+  .btn-puzzle { background:var(--blue); }
+  .btn-sticker { background:var(--green); grid-column:1/-1; font-size:17px; padding:14px; }
+  .big-btn:active { transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
+  .sticker-pill { margin-top:6px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* 通用卡片/按钮 */
+  .card2 { background:#fff; border-radius:18px; border:2px solid var(--line); padding:16px 18px; margin:12px 0; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .btn { border:none; border-radius:12px; padding:10px 18px; font-size:16px; font-weight:700; min-height:48px; }
+  .btn.primary { background:var(--blue); color:#fff; }
+  .btn.ghost { background:#fff; border:2px solid var(--line); }
+  .btn.green { background:var(--green); color:#fff; }
+  .btn.red { background:var(--red); color:#fff; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* 数学 */
+  .level-cards { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .level-card { border:3px solid var(--line); border-radius:18px; background:#fff; padding:16px 8px;
+    text-align:center; cursor:pointer; transition:transform .12s; }
+  @media (hover:hover){ .level-card:hover { transform:translateY(-4px); } }
+  .level-card .lc-emoji { font-size:42px; }
+  .level-card .lc-name { font-weight:800; font-size:18px; }
+  .level-card .lc-desc { font-size:12px; color:var(--muted); }
+  .level-card.easy { border-color:#22c55e; }
+  .level-card.mid { border-color:#f59e0b; }
+  .level-card.hard { border-color:var(--red); }
+
+  .qbox { text-align:center; padding:20px 6px; }
+  .qbox .progress { color:var(--muted); font-size:13px; }
+  .qchar { font-size:52px; display:inline-block; }
+  .qexpr { font-size:clamp(30px,13vw,46px); font-weight:800; margin:10px 0 18px; }
+  .qopts { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .qopt { width:80px; height:80px; font-size:30px; font-weight:800; border:3px solid var(--line);
+    border-radius:18px; background:#fff; transition:transform .1s; }
+  @media (hover:hover){ .qopt:hover { border-color:var(--blue); } }
+  .qopt.ok { background:#d1fae5; border-color:var(--green); }
+  .qopt.no { background:#fee2e2; border-color:var(--red); }
+  .qfeedback { margin-top:14px; font-size:16px; min-height:26px; font-weight:600; color:var(--muted); }
+  .bones { font-size:clamp(20px,7vw,30px); letter-spacing:0; margin:6px 0; min-height:38px;
+    display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:4px; }
+  .bones .bw { display:inline-flex; flex-wrap:wrap; gap:2px; justify-content:center; }
+  .bones .bone { font-style:normal; }
+  .bones .bdim { opacity:.25; }
+  .stars { color:#f59e0b; font-size:22px; }
+
+  /* 结算 */
+  .result-box { text-align:center; padding:18px 6px; }
+  .result-box .score { font-size:44px; font-weight:800; color:var(--blue); }
+  .sticker-got { display:inline-flex; align-items:center; gap:8px; background:#fff7e6; border:2px solid var(--yellow);
+    border-radius:14px; padding:8px 14px; margin-top:8px; font-weight:700; }
+
+  /* 小游戏列表 */
+  .puzzle-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .pz-card { background:#fff; border:2px solid var(--line); border-radius:18px; padding:16px; text-align:center; cursor:pointer; }
+  @media (hover:hover){ .pz-card:hover { border-color:var(--blue); } }
+  .pz-card .pz-emoji { font-size:40px; }
+  .pz-card .pz-name { font-weight:800; font-size:16px; }
+  .pz-card.locked { opacity:.55; cursor:not-allowed; }
+  .pz-tag { font-size:11px; padding:1px 8px; border-radius:999px; background:#eef2ff; color:#4b5563; }
+
+  /* 拼图 */
+  .slider { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:270px; margin:16px auto; }
+  .slider .tile { aspect-ratio:1; border-radius:12px; background:var(--blue); color:#fff; font-size:28px;
+    font-weight:800; display:flex; align-items:center; justify-content:center; transition:background .2s; cursor:pointer; }
+  .slider .tile.blank { background:#e5e7eb; cursor:default; }
+  .slider .tile.correct { background:var(--green); }
+
+  /* 记忆配对 */
+  .mem-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-width:360px; margin:16px auto; }
+  .mem-card { aspect-ratio:1; border-radius:12px; border:3px solid var(--line); background:#fff; font-size:30px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.25s; perspective:600px; }
+  .mem-card .face { display:none; }
+  .mem-card.flip { background:var(--blue); border-color:var(--blue); }
+  .mem-card.flip .face { display:inline; }
+  .mem-card.flip .back { display:none; }
+  .mem-card.matched { background:#d1fae5; border-color:var(--green); opacity:.85; }
+  .mem-card.matched .face { display:inline; }
+
+  /* 找不同 */
+  .spot-wrap { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:520px; margin:16px auto; }
+  .spot-panel { }
+  .spot-panel h4 { text-align:center; margin:4px 0 8px; font-size:14px; color:var(--muted); }
+  .spot-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .spot-cell { aspect-ratio:1; border-radius:10px; background:#fff; border:2px solid var(--line);
+    font-size:30px; display:flex; align-items:center; justify-content:center; }
+  .spot-cell.found { background:#d1fae5; border-color:var(--green); }
+  .spot-cell.wrong { animation:shake .3s; }
+
+  /* 迷宫 */
+  .maze-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; max-width:360px; margin:16px auto; }
+  .maze-cell { aspect-ratio:1; border-radius:10px; background:#fff; border:2px solid var(--line); font-size:26px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .maze-cell.wall { background:#d9dde3; border-color:#cbd2dc; }
+  .maze-cell.pet { background:#fff1d6; border-color:var(--yellow); }
+  .maze-cell.goal { background:#d1fae5; border-color:var(--green); }
+
+  /* 形状分类 */
+  .sort-big { font-size:clamp(64px,24vw,96px); line-height:1; }
+  .sort-bins { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .sort-bin { display:flex; flex-direction:column; align-items:center; gap:4px; background:#fff; border:3px solid var(--line);
+    border-radius:16px; padding:12px 16px; cursor:pointer; }
+  .sort-bin .sort-glyph { font-size:40px; line-height:1; }
+  @media (hover:hover){ .sort-bin:hover { border-color:var(--blue); } }
+  .sort-bin.wrong { animation:shake .3s; border-color:var(--red); }
+
+  /* 数量排序 */
+  .order-cards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .order-card { background:#fff; border:3px solid var(--line); border-radius:16px; padding:14px 16px; cursor:pointer;
+    text-align:center; font-size:30px; line-height:1.35; letter-spacing:2px; }
+  @media (hover:hover){ .order-card:hover { border-color:var(--blue); } }
+  .order-card.done { background:#d1fae5; border-color:var(--green); }
+  .order-card.wrong { animation:shake .3s; border-color:var(--red); }
+
+  /* 贴纸 */
+  .stk-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .stk-item { text-align:center; background:#fff; border-radius:16px; border:2px solid var(--line); padding:12px 6px; }
+  .stk-item .avatar { width:54px; height:54px; border-radius:50%; margin:0 auto; font-size:28px;
+    display:flex; align-items:center; justify-content:center; color:#fff; }
+  .stk-item.lock0 .avatar { filter:grayscale(1); opacity:.3; }
+  .stk-count { font-weight:800; font-size:16px; margin-top:4px; }
+  .stk-item.lock0 .stk-count { color:var(--muted); }
+
+  /* 家长中心 */
+  .pc-tabs { display:flex; gap:8px; margin:10px 0; }
+  .pc-tab { flex:1; border:2px solid var(--line); background:#fff; border-radius:12px; padding:12px 8px; font-weight:700; min-height:48px; }
+  .pc-tab.on { border-color:var(--blue); color:var(--blue); }
+  .rec-table { width:100%; border-collapse:collapse; font-size:13px; background:#fff; }
+  .rec-table th,.rec-table td { border:1px solid var(--line); padding:6px 8px; text-align:left; }
+  .rec-table th { background:#f3f6fb; }
+  .summary { display:flex; gap:10px; flex-wrap:wrap; }
+  .sum-item { flex:1; min-width:120px; background:#fff; border:2px solid var(--line); border-radius:14px; padding:12px; text-align:center; }
+  .sum-item .v { font-size:24px; font-weight:800; color:var(--blue); }
+  .setting-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
+  .setting-row:last-child { border-bottom:0; }
+  select.set-input { font-size:16px; padding:6px 10px; border-radius:10px; border:2px solid var(--line); }
+  .toggle { position:relative; width:64px; height:48px; background:#d1d5db; border-radius:999px; cursor:pointer; border:none; }
+  .toggle::after { content:''; position:absolute; left:4px; top:4px; width:40px; height:40px; background:#fff; border-radius:50%; transition:.2s; }
+  .toggle.on { background:var(--green); }
+  .toggle.on::after { left:20px; }
+
+  /* 弹层 */
+  .overlay { position:fixed; inset:0; background:rgba(15,23,42,.6); display:none; align-items:center; justify-content:center; z-index:99; padding:16px; }
+  .overlay.show { display:flex; }
+  .modal { background:#fff; border-radius:22px; padding:26px; max-width:440px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal.lock { border:3px solid var(--red); }
+  .modal h2 { margin:4px 0 8px; }
+  .lock-big { font-size:54px; }
+  .math-unlock { font-size:26px; font-weight:800; margin:10px 0; }
+  .modal input[type=text],.modal input[type=password] { font-size:20px; padding:10px; width:150px; text-align:center;
+    border-radius:12px; border:2px solid var(--line); }
+  .modal .err { color:var(--red); min-height:20px; font-size:14px; margin-top:4px; }
+
+  /* 动画 */
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-16px)} 60%{transform:translateY(-6px)} }
+  @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+  @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  @keyframes wave { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-14deg)} 75%{transform:rotate(14deg)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+  @keyframes confettiFall { from{transform:translateY(-10px) rotate(0);opacity:1} to{transform:translateY(80px) rotate(360deg);opacity:0} }
+  .anim-bounce { animation:bounce .6s ease; }
+  .anim-spin { animation:spin .8s ease; }
+  .anim-pop { animation:pop .5s ease; }
+  .anim-wave { animation:wave .7s ease; }
+
+  .confetti { position:fixed; top:30%; left:50%; font-size:26px; z-index:120; pointer-events:none; animation:confettiFall 1.4s ease forwards; }
+  .backdrop-confetti { position:fixed; inset:0; z-index:119; pointer-events:none; }
+
+  @media (max-width:520px){
+    .level-cards { grid-template-columns:1fr; }
+    .puzzle-grid { grid-template-columns:1fr 1fr; }
+    .big-btns { grid-template-columns:1fr; }
+    .rec-table { font-size:12px; }
+  }
+  @media (max-width:360px){
+    .topbar .logo { font-size:19px; }
+    h1.pg { font-size:23px; }
+    .card2 { padding:14px 12px; }
+    .qopt { width:72px; height:72px; font-size:27px; }
+    .qchar { font-size:44px; }
+    .bones { gap:2px; }
+    .spot-wrap { gap:8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="logo">🐾 汪汪队数学益智</span>
+    <span class="timer" id="timerPill">⏱ --:--</span>
+    <button class="icon-btn" id="btnHome" title="回大厅">🏠</button>
+    <button class="icon-btn" id="btnParent" title="家长中心">⚙️</button>
+  </div>
+
+  <!-- 大厅 -->
+  <section class="screen active" id="screen-lobby">
+    <div class="lobby-hero">
+      <span class="big-char" id="heroChar">👦</span>
+      <div class="say" id="heroSay">汪汪队，出发啦！选个伙伴开始闯关吧～</div>
+    </div>
+    <div class="char-row" id="charRow"></div>
+    <div class="big-btns">
+      <button class="big-btn btn-math" id="btnMath">🚒 数学救援</button>
+      <button class="big-btn btn-puzzle" id="btnPuzzle">🧩 益智小游戏</button>
+      <button class="big-btn btn-sticker" id="btnSticker">⭐ 我的贴纸</button>
+    </div>
+    <div class="sticker-pill" id="stickerPill"></div>
+  </section>
+
+  <!-- 数学救援 -->
+  <section class="screen" id="screen-math">
+    <h1 class="pg">🚒 数学救援</h1>
+    <p class="pg-sub">选一个难度，帮伙伴完成救援任务（每关 10 题）</p>
+    <div class="level-cards" id="levelCards"></div>
+    <div class="card2 qbox" id="mathPlay" style="display:none;">
+      <div class="progress" id="qProg"></div>
+      <div id="qCharWrap" class="qchar" style="font-size:52px;"></div>
+      <div class="qexpr" id="qExpr"></div>
+      <div class="bones" id="qBones"></div>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qfeedback" id="qFb"></div>
+    </div>
+    <div class="card2 result-box" id="mathResult" style="display:none;">
+      <div id="resChar" style="font-size:60px;"></div>
+      <div class="stars" id="resStars"></div>
+      <div id="resSay" style="font-size:18px;font-weight:700;margin:6px 0;"></div>
+      <div class="score" id="resScore"></div>
+      <div id="resDetail" style="color:var(--muted);font-size:14px;margin:4px 0;"></div>
+      <div class="sticker-got" id="resSticker" style="display:none;"></div>
+      <div class="row" style="justify-content:center;margin-top:16px;gap:10px;">
+        <button class="btn primary" id="btnAgain">再来一局</button>
+        <button class="btn ghost" id="btnBackMath">返回</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 益智小游戏 -->
+  <section class="screen" id="screen-puzzle">
+    <h1 class="pg">🧩 益智小游戏</h1>
+    <p class="pg-sub">选一个小游戏，锻炼观察力、记忆力和动手能力</p>
+    <div class="puzzle-grid" id="puzzleGrid"></div>
+    <div class="card2" id="puzzlePlay" style="display:none;">
+      <div class="row" style="justify-content:space-between;">
+        <button class="btn ghost" id="btnPzBack">← 返回列表</button>
+        <span id="pzTitle" style="font-weight:800;font-size:18px;"></span>
+        <span style="width:90px;"></span>
+      </div>
+      <div id="pzHint" style="text-align:center;color:var(--muted);font-size:14px;margin-top:6px;"></div>
+      <div id="pzBody"></div>
+    </div>
+  </section>
+
+  <!-- 我的贴纸 -->
+  <section class="screen" id="screen-sticker">
+    <h1 class="pg">⭐ 我的贴纸</h1>
+    <p class="pg-sub">完成任务收集伙伴贴纸，看看集齐了多少～</p>
+    <div class="stk-grid" id="stickerGrid"></div>
+    <div class="row" style="justify-content:center;margin-top:18px;">
+      <button class="btn ghost" id="btnStkBack">← 回大厅</button>
+    </div>
+  </section>
+
+  <!-- 家长中心 -->
+  <section class="screen" id="screen-parent">
+    <h1 class="pg">⚙️ 家长中心</h1>
+    <p class="pg-sub">查看成绩、调整游玩时长与声音</p>
+    <div class="pc-tabs">
+      <button class="pc-tab on" data-tab="records">成绩记录</button>
+      <button class="pc-tab" data-tab="settings">设置</button>
+    </div>
+    <div id="pcRecords">
+      <div class="summary" id="pcSummary"></div>
+      <div class="card2" style="max-height:340px;overflow:auto;">
+        <table class="rec-table" id="recTable"></table>
+      </div>
+    </div>
+    <div id="pcSettings" style="display:none;">
+      <div class="card2">
+        <div class="setting-row" style="border-bottom:0;">
+          <span style="font-weight:700;">按星期设置游玩时长</span>
+        </div>
+        <div id="weekdayLimits"></div>
+        <div class="setting-row">
+          <span>声音 / 音效</span>
+          <button class="toggle" id="setSound"></button>
+        </div>
+        <div class="setting-row">
+          <span>重置成绩与贴纸</span>
+          <button class="btn red" id="btnReset">重置</button>
+        </div>
+        <p style="color:var(--muted);font-size:12px;margin:8px 0 0;">提示：数据仅保存在本机浏览器，清理浏览器数据会导致记录丢失。</p>
+      </div>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:14px;">
+      <button class="btn ghost" id="btnPcBack">← 回大厅</button>
+    </div>
+  </section>
+</div>
+
+<!-- 家长验证 -->
+<div class="overlay" id="overlay-verify">
+  <div class="modal">
+    <h2>家长验证</h2>
+    <p style="color:var(--muted);">请家长回答下面这道题（小朋友请把手机交给家长）</p>
+    <div class="math-unlock" id="vQ"></div>
+    <input type="text" inputmode="numeric" id="vInput" placeholder="输入答案">
+    <div class="err" id="vErr"></div>
+    <div class="row" style="justify-content:center;margin-top:10px;gap:10px;">
+      <button class="btn primary" id="vOk">确认</button>
+      <button class="btn ghost" id="vCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 时间锁 -->
+<div class="overlay" id="overlay-lock">
+  <div class="modal lock">
+    <div class="lock-big">⏰</div>
+    <h2 id="lockTitle">该休息啦～</h2>
+    <p id="lockMsg" style="color:var(--muted);">今天玩得真棒！为了保护小眼睛，游戏先锁定啦。</p>
+    <div id="lockUnlockArea">
+      <div class="math-unlock" id="lQ"></div>
+      <input type="text" inputmode="numeric" id="lInput" placeholder="家长输入答案">
+      <div class="err" id="lErr"></div>
+      <div class="row" style="justify-content:center;margin-top:10px;gap:10px;">
+        <button class="btn primary" id="lOk">家长解锁</button>
+      </div>
+    </div>
+    <div id="lockChoices" style="display:none;">
+      <p style="font-weight:700;color:var(--green);">解锁成功！今天还可以：</p>
+      <div class="row" style="justify-content:center;gap:10px;flex-wrap:wrap;">
+        <button class="btn green" id="lMore">再玩 15 分钟</button>
+        <button class="btn ghost" id="lStop">今天先到这里</button>
+      </div>
+    </div>
+    <div id="lockStopped" style="display:none;">
+      <p style="font-weight:700;">已锁定，明天再继续玩吧～ 🌙</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据定义 ============ */
+const CHARACTERS = [
+  {id:'ryder',    name:'莱德', role:'队长 · 引导',   img:'images/莱德.jpg', color:'#e63b2e'},
+  {id:'marshall', name:'毛毛', role:'消防 · 简单题', img:'images/毛毛.jpg', color:'#d9232e'},
+  {id:'skye',     name:'天天', role:'飞行 · 中等题', img:'images/天天.jpg', color:'#ec4899'},
+  {id:'chase',    name:'阿奇', role:'警察 · 分类',   img:'images/阿奇.jpg', color:'#1f6feb'},
+  {id:'rubble',   name:'小砾', role:'工程 · 拼图',   img:'images/小砾.jpg', color:'#f59e0b'},
+  {id:'rocky',    name:'灰灰', role:'环保 · 记忆',   img:'images/灰灰.jpg', color:'#22c55e'},
+  {id:'zuma',     name:'路马', role:'水上 · 迷宫',   img:'images/路马.jpg', color:'#f97316'},
+  {id:'everest',  name:'珠珠', role:'雪地 · 找不同', img:'images/珠珠.jpg', color:'#06b6d4'},
+  {id:'tracker',  name:'小克', role:'丛林 · 排序',   img:'images/小克.jpg', color:'#a16207'},
+];
+const CHAR_MAP = Object.fromEntries(CHARACTERS.map(c=>[c.id,c]));
+const DIFF_BY_LEVEL = {1:'marshall', 2:'skye', 3:'ryder'};
+
+const PUZZLES = [
+  {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点击数字块滑动，把 1-8 按顺序排好'},
+  {id:'memory', name:'记忆配对', char:'rocky',   level:'P0', icon:'🃏', hint:'翻牌找相同的图案，全部配成对'},
+  {id:'spot',   name:'找不同',   char:'everest', level:'P0', icon:'🔍', hint:'两幅图有 3 处不同，点右边不同的格子'},
+  {id:'maze',   name:'迷宫',     char:'zuma',    level:'P0', icon:'🌀', hint:'点一点，帮路马走到骨头那里'},
+  {id:'sort',   name:'形状分类', char:'chase',   level:'P0', icon:'🧺', hint:'把形状放进对应的筐里'},
+  {id:'order',  name:'数量排序', char:'tracker', level:'P0', icon:'🔢', hint:'按数量从少到多，依次点一点'},
+];
+
+const SOUND_EVENTS = {
+  click:[620,.07,'square',.06], correct:[660,0.12,'sine',.22], correct2:[880,0.16,'sine',.22],
+  wrong:[320,0.2,'sine',.12], star:[523,0.12,'sine',.18], win:[523,0.22,'sine',.2],
+  flip:[500,0.06,'triangle',.12], pop:[720,0.1,'sine',.15], lock:[220,0.4,'sine',.2]
+};
+
+/* ============ 状态 ============ */
+const STORE_KEY = 'pawpatrol_math_game_v1';
+let state = loadState();
+let selectedChar = 'ryder';
+let gameActive = false;
+let lockShown = false;
+
+function fillWeekdays(v){ return {0:v,1:v,2:v,3:v,4:v,5:v,6:v}; }
+function defaultState(){
+  return {
+    settings:{ dailyLimit:30, sound:true, weekdays:fillWeekdays(30) },
+    records:[],
+    stickers:{},
+    time:{ date:todayKey(), seconds:0, extraMinutes:0, stopToday:false }
+  };
+}
+function getTodayWeekday(){ return new Date().getDay(); }
+function todayKey(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){
+      const s=JSON.parse(raw);
+      if(s && s.settings){
+        s.time = s.time||defaultState().time;
+        if(!s.settings.weekdays){ s.settings.weekdays = fillWeekdays(s.settings.dailyLimit||30); }
+        return s;
+      }
+    }
+  }catch(e){}
+  return defaultState();
+}
+function saveState(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ============ 音频 ============ */
+let audioCtx=null;
+function ensureCtx(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+}
+function playTone(freq,dur,type,vol,when){
+  try{
+    ensureCtx();
+    if(!audioCtx) return;
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.value=vol||0.2;
+    const t=audioCtx.currentTime+(when||0);
+    g.gain.setValueAtTime(vol||0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t+dur+0.02);
+  }catch(e){}
+}
+function sfx(name){
+  if(!state.settings.sound) return;
+  const e=SOUND_EVENTS[name]; if(!e) return;
+  playTone(e[0],e[1],e[2],e[3],0);
+}
+function sfxWin(){ [523,659,784,1047].forEach((f,i)=>playTone(f,0.24,'sine',0.18,i*0.12)); }
+function sfxWrong(){ playTone(300,0.18,'sine',0.1,0); playTone(240,0.24,'sine',0.1,0.15); }
+function speak(text){
+  if(!state.settings.sound) return;
+  try{
+    if('speechSynthesis' in window){
+      const u=new SpeechSynthesisUtterance(text); u.lang='zh-CN'; u.rate=0.95; u.pitch=1.2;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+const VOICE_BASE='audio/';
+function voice(charId, event, fallbackText){
+  if(!state.settings.sound) return;
+  const url = VOICE_BASE + charId + '/' + event + '.mp3';
+  let fell=false;
+  const fallback=()=>{ if(fell) return; fell=true; speak(fallbackText); };
+  try{
+    const a=new Audio(url);
+    a.onerror=fallback;
+    const p=a.play();
+    if(p && p.then) p.catch(fallback);
+  }catch(e){ fallback(); }
+}
+
+/* ============ 时间锁 ============ */
+function limitSeconds(){ return (state.settings.weekdays[getTodayWeekday()]||30)*60 + state.time.extraMinutes*60; }
+function remainingSeconds(){ return limitSeconds() - state.time.seconds; }
+function isLocked(){ return state.time.stopToday || remainingSeconds()<=0; }
+
+function fmtClock(s){ s=Math.max(0,s); const m=Math.floor(s/60), r=s%60; return m+':'+String(r).padStart(2,'0'); }
+function fmtClockFull(s){ return Math.floor(s/60)+' 分钟'; }
+function updateTimer(){
+  const pill=document.getElementById('timerPill');
+  const rem=remainingSeconds();
+  const lock=isLocked();
+  pill.textContent = lock ? '⏱ 已锁定' : '⏱ 剩余 '+fmtClock(rem);
+  pill.classList.toggle('low', !lock && rem<=300);
+}
+
+function triggerLock(){
+  if(lockShown) return;
+  lockShown=true; gameActive=false; sfx('lock');
+  buildLockQuestion();
+  show('overlay-lock');
+  document.getElementById('lockChoices').style.display='none';
+  document.getElementById('lockStopped').style.display='none';
+  document.getElementById('lockUnlockArea').style.display='block';
+  document.getElementById('lInput').value=''; document.getElementById('lErr').textContent='';
+}
+
+/* ============ 通用 UI ============ */
+function $(id){ return document.getElementById(id); }
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=$(id);
+  if(el){ el.classList.add('active'); window.scrollTo(0,0); }
+}
+function showOverlay(id){ $(id).classList.add('show'); }
+function hideOverlay(id){ $(id).classList.remove('show'); }
+function animate(el, cls, ms){
+  if(!el) return;
+  ['anim-bounce','anim-spin','anim-pop','anim-wave'].forEach(c=>el.classList.remove(c));
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(()=>el.classList.remove(cls), ms||700);
+}
+function confetti(){
+  const colors=['#f43f5e','#f59e0b','#22c55e','#3b82f6','#a855f7'];
+  const ems=['⭐','🎉','✨','🌟','🧡'];
+  for(let i=0;i<16;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    c.textContent=ems[i%ems.length];
+    c.style.left=(15+Math.random()*70)+'%';
+    c.style.top='20%';
+    c.style.animationDelay=(Math.random()*0.4)+'s';
+    c.style.fontSize=(18+Math.random()*16)+'px';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),2000);
+  }
+}
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+function charImg(c, px){
+  return '<img src="'+c.img+'" alt="'+c.name+'" style="width:'+px+'px;height:'+px+'px;object-fit:cover;border-radius:50%;">';
+}
+function charAvatarHTML(c, size){ 
+  return '<span class="char-avatar" style="width:'+size+'px;height:'+size+'px;">'+charImg(c, size)+'</span>';
+}
+
+/* ============ 大厅 ============ */
+function renderLobby(){
+  const row=$('charRow'); row.innerHTML='';
+  CHARACTERS.forEach(c=>{
+    const d=document.createElement('div'); d.className='char-card'+(c.id===selectedChar?' sel':'');
+    d.innerHTML = charAvatarHTML(c,58)+'<div class="nm">'+c.name+'</div><div class="role">'+c.role+'</div>';
+    d.onclick=()=>{ selectedChar=c.id; renderLobby(); sfx('click'); voice(c.id,'hello',c.name+'！你好呀'); };
+    row.appendChild(d);
+  });
+  const hero=CHAR_MAP[selectedChar];
+  $('heroChar').innerHTML='<img src="'+hero.img+'" alt="'+hero.name+'">';
+  $('heroSay').textContent='我是'+hero.name+'，'+hero.role+'。选好伙伴就出发吧～';
+  updateStickerPill();
+}
+function updateStickerPill(){
+  const total=CHARACTERS.reduce((s,c)=>s+(state.stickers[c.id]||0),0);
+  $('stickerPill').textContent='已收集 '+total+' 枚贴纸';
+}
+
+/* ============ 贴纸 ============ */
+function renderStickers(){
+  const g=$('stickerGrid'); g.innerHTML='';
+  CHARACTERS.forEach(c=>{
+    const n=state.stickers[c.id]||0;
+    const d=document.createElement('div'); d.className='stk-item'+(n===0?' lock0':'');
+    d.innerHTML = '<div class="avatar">'+charImg(c,54)+'</div>'+
+      '<div class="stk-count">'+(n===0?'未获得':'×'+n)+'</div><div style="font-size:13px;color:var(--muted);">'+c.name+'</div>';
+    g.appendChild(d);
+  });
+}
+
+/* ============ 数学救援 ============ */
+let math={};
+function genQuestion(level){
+  let q;
+  for(let t=0;t<100;t++){
+    q = makeQuestion(level);
+    if(q) break;
+  }
+  return q;
+}
+function makeQuestion(level){
+  if(level===1){
+    if(Math.random()<0.5){ const a=randInt(1,9), b=randInt(1,10-a); return {expr:a+' + '+b, ans:a+b, a,b,op:'+',show:true}; }
+    else { const a=randInt(2,10), b=randInt(0,a); return {expr:a+' − '+b, ans:a-b, a,b,op:'-',show:true}; }
+  }
+  if(level===2){
+    if(Math.random()<0.5){ const a=randInt(5,14), b=randInt(2,20-a); return {expr:a+' + '+b, ans:a+b, a,b,op:'+',show:true}; }
+    else { const u=randInt(2,9), a=10+u, b=randInt(1,u); return {expr:a+' − '+b, ans:a-b, a,b,op:'-',show:true}; }
+  }
+  if(level===3){
+    const r=Math.random();
+    if(r<0.34){ const a=randInt(6,9), b=randInt(6,9); return {expr:a+' + '+b, ans:a+b, a,b,op:'+',show:true}; }
+    if(r<0.67){ const a=randInt(11,18); const b=randInt(a%10+1,9); return {expr:a+' − '+b, ans:a-b, a,b,op:'-',show:true}; }
+    for(let k=0;k<20;k++){ const a=randInt(3,9), b=randInt(2,9), c=randInt(1,9); const ans=a+b-c;
+      if(ans>=0 && ans<=20) return {expr:a+' + '+b+' − '+c, ans, a,b,c,op:'+-',show:false}; }
+  }
+  return makeQuestion(1);
+}
+function makeOptions(ans){
+  const s=new Set([ans]); let guard=0;
+  while(s.size<3 && guard<50){ guard++;
+    const delta=([-3,-2,-1,1,2,3][randInt(0,5)]) + randInt(0,2);
+    let d=ans+delta; if(d<0) d=ans+1+randInt(0,2);
+    s.add(d);
+  }
+  return shuffle([...s]);
+}
+
+function renderLevels(){
+  const c=$('levelCards'); c.innerHTML='';
+  const defs=[
+    {lv:1,name:'简单',desc:'0~10 加加减减',cls:'easy',icon:'🍀'},
+    {lv:2,name:'中等',desc:'0~20 进阶挑战',cls:'mid',icon:'🌟'},
+    {lv:3,name:'困难',desc:'0~20 进位退位',cls:'hard',icon:'🔥'},
+  ];
+  defs.forEach(d=>{
+    const card=document.createElement('div'); card.className='level-card '+d.cls;
+    const cc=CHAR_MAP[DIFF_BY_LEVEL[d.lv]];
+    card.innerHTML='<div class="lc-emoji">'+charImg(cc,52)+'</div><div class="lc-name">'+d.name+'</div><div class="lc-desc">'+cc.name+' · '+d.desc+'</div>';
+    card.onclick=()=>{ sfx('click'); startMath(d.lv); };
+    c.appendChild(card);
+  });
+}
+function startMath(level){
+  math={level, questions:[], idx:0, score:0, correct:0, wrong:0, tries:0, startAt:Date.now()};
+  for(let i=0;i<10;i++) math.questions.push(genQuestion(level));
+  $('levelCards').style.display='none';
+  $('mathPlay').style.display='';
+  $('mathResult').style.display='none';
+  gameActive=true;
+  show('screen-math');
+  renderMathQ();
+}
+function questionSpeech(q){
+  if(q.op==='+') return q.a+' 加 '+q.b+' 等于几？';
+  if(q.op==='-') return q.a+' 减 '+q.b+' 等于几？';
+  return q.a+' 加 '+q.b+' 再减 '+q.c+' 等于几？';
+}
+function renderMathQ(){
+  const q=math.questions[math.idx];
+  const cc=CHAR_MAP[DIFF_BY_LEVEL[math.level]];
+  $('qProg').textContent='第 '+(math.idx+1)+' / 10 题';
+  $('qCharWrap').innerHTML=charImg(cc,64);
+  $('qExpr').textContent=q.expr+' = ?';
+  $('qBones').innerHTML = q.show ? bonesHTML(q) : '';
+  $('qFb').textContent='';
+  voice(cc.id,'question',questionSpeech(q));
+  const opt=$('qOpts'); opt.innerHTML='';
+  makeOptions(q.ans).forEach(v=>{
+    const b=document.createElement('button'); b.className='qopt'; b.textContent=v;
+    b.onclick=()=>onAnswer(b, v);
+    opt.appendChild(b);
+  });
+}
+function bonesHTML(q){
+  const bones=n=>'<span class="bw">'+Array.from({length:Math.min(n,10)}).map(()=>'<i class="bone">🦴</i>').join('')+'</span>';
+  const op = q.op==='+' ? '+' : '−';
+  return bones(q.a)+' <b>'+op+'</b> '+bones(q.b);
+}
+function onAnswer(btn, val){
+  const q=math.questions[math.idx];
+  const opts=Array.from($('qOpts').children);
+  const isCorrect = val===q.ans;
+  if(isCorrect){
+    btn.classList.add('ok'); sfx('correct');
+    animate($('qCharWrap'),'anim-bounce');
+    voice(DIFF_BY_LEVEL[math.level],'correct','答对啦！');
+    $('qFb').textContent='答对啦！真棒 🎉';
+    $('qFb').style.color='var(--green)';
+    math.correct++; math.score+=10;
+  } else {
+    btn.classList.add('no'); sfxWrong();
+    math.tries=math.tries||0;
+    if(math.tries===0){
+      math.tries=1;
+      animate($('qCharWrap'),'anim-wave');
+      $('qFb').textContent='差一点～ 数一数骨头，再试一次！';
+      $('qFb').style.color='var(--muted)';
+      voice(DIFF_BY_LEVEL[math.level],'wrong','再试一次，你可以的！');
+      return; // 允许再试
+    }
+    // 第二次还错
+    const ansBtn = opts.find(b=>String(b.textContent)===String(q.ans));
+    if(ansBtn) ansBtn.classList.add('ok');
+    math.wrong++; math.tries=0;
+    $('qFb').textContent='答案是 '+q.ans+'，我们看下一题～';
+    $('qFb').style.color='var(--muted)';
+    voice(DIFF_BY_LEVEL[math.level],'wrong','没关系，看下一题');
+  }
+  opts.forEach(b=>b.onclick=null);
+  afterAnswer();
+}
+function afterAnswer(){
+  setTimeout(()=>{
+    math.tries=0;
+    math.idx++;
+    if(math.idx>=10) finishMath();
+    else renderMathQ();
+  }, 1300);
+}
+
+function finishMath(){
+  gameActive=false;
+  const total=10, correct=math.correct;
+  const acc=correct/total*100;
+  const cc=CHAR_MAP[DIFF_BY_LEVEL[math.level]];
+  const stars = correct>=8?3 : correct>=5?2 : correct>=3?1 : 0;
+  $('levelCards').style.display='';
+  $('mathPlay').style.display='none';
+  $('mathResult').style.display='';
+  $('resChar').innerHTML=charImg(cc,80);
+  $('resStars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
+  $('resSay').textContent=encourage(acc);
+  $('resScore').textContent=math.score+' 分';
+  $('resDetail').textContent='答对 '+correct+' / 10 题 · 正确率 '+acc+'%';
+  const stkBox=$('resSticker');
+  if(correct>0){
+    addSticker(cc.id);
+    stkBox.style.display='inline-flex';
+    stkBox.textContent='🎁 获得 '+cc.name+' 贴纸 ×1';
+    sfxWin(); confetti(); voice(cc.id,'win',encourage(acc)+'获得'+cc.name+'贴纸啦');
+  } else {
+    stkBox.style.display='none';
+  }
+  addRecord({type:'数学救援', label:cc.name, level:'L'+math.level+' · '+['简单','中等','困难'][math.level-1],
+    score:math.score, accuracy:acc, duration:Math.round((Date.now()-math.startAt)/1000)});
+  renderStickers(); updateStickerPill();
+}
+function encourage(acc){
+  if(acc>=90) return '太棒了！';
+  if(acc>=70) return '很棒！';
+  if(acc>=50) return '继续加油！';
+  return '再试一次！';
+}
+function addSticker(charId){ state.stickers[charId]=(state.stickers[charId]||0)+1; saveState(); }
+function addRecord(r){ r.ts=Date.now(); state.records.push(r); if(state.records.length>300) state.records=state.records.slice(-300); saveState(); }
+
+/* ============ 益智小游戏 ============ */
+function renderPuzzles(){
+  const g=$('puzzleGrid'); g.innerHTML='';
+  PUZZLES.forEach(p=>{
+    const cc=CHAR_MAP[p.char];
+    const d=document.createElement('div');
+    d.className='pz-card';
+    d.innerHTML='<div class="pz-emoji">'+p.icon+'</div><div class="pz-name">'+p.name+'</div>'+
+      '<div style="font-size:12px;color:var(--muted);">'+cc.name+'</div><div class="pz-tag">'+p.level+'</div>';
+    d.onclick=()=>{ sfx('click'); startPuzzle(p.id); };
+    g.appendChild(d);
+  });
+}
+let pz={};
+function startPuzzle(id){
+  pz={id, startAt:Date.now()};
+  $('puzzleGrid').style.display='none';
+  $('puzzlePlay').style.display='';
+  const p=PUZZLES.find(x=>x.id===id);
+  $('pzTitle').textContent=p.icon+' '+p.name;
+  $('pzHint').textContent=p.hint;
+  gameActive=true;
+  show('screen-puzzle');
+  if(id==='puzzle') startSlider();
+  else if(id==='memory') startMemory();
+  else if(id==='spot') startSpot();
+  else if(id==='maze') startMaze();
+  else if(id==='sort') startSort();
+  else if(id==='order') startOrder();
+}
+function puzzleWin(p){
+  gameActive=false;
+  const cc=CHAR_MAP[p.char];
+  addSticker(cc.id);
+  addRecord({type:'益智小游戏', label:p.name, level:'-', score:100, accuracy:100,
+    duration:Math.round((Date.now()-pz.startAt)/1000)});
+  sfxWin(); confetti(); voice(p.char,'win','太棒了！');
+  renderStickers(); updateStickerPill();
+  setTimeout(()=>{
+    $('pzBody').innerHTML='<div class="result-box"><div style="font-size:60px;">🎉</div>'+
+      '<div style="font-size:20px;font-weight:800;">'+encourage(100)+'</div>'+
+      '<div class="sticker-got" style="display:inline-flex;">🎁 获得 '+cc.name+' 贴纸 ×1</div>'+
+      '<div class="row" style="justify-content:center;margin-top:16px;gap:10px;">'+
+      '<button class="btn primary" onclick="startPuzzle(\''+p.id+'\')">再玩一次</button>'+
+      '<button class="btn ghost" onclick="backPuzzleList()">返回列表</button></div></div>';
+  }, 600);
+}
+function backPuzzleList(){
+  gameActive=false;
+  $('puzzlePlay').style.display='none';
+  $('puzzleGrid').style.display='';
+  show('screen-puzzle');
+}
+
+/* —— 滑块拼图 —— */
+let slider={board:[], blank:8};
+function startSlider(){
+  const goal=[1,2,3,4,5,6,7,8,0];
+  slider.board=goal.slice(); slider.blank=8;
+  // 随机合法移动打乱
+  let empty=8, last=-1;
+  for(let i=0;i<200;i++){
+    const moves=sliderMoves(empty).filter(m=>m!==last);
+    const m=moves[randInt(0,moves.length-1)];
+    [slider.board[empty],slider.board[m]]=[slider.board[m],slider.board[empty]];
+    last=empty; empty=m;
+  }
+  slider.blank=empty;
+  renderSlider();
+}
+function sliderMoves(blank){
+  const r=Math.floor(blank/3), c=blank%3; const m=[];
+  if(r>0)m.push(blank-3); if(r<2)m.push(blank+3); if(c>0)m.push(blank-1); if(c<2)m.push(blank+1);
+  return m;
+}
+function renderSlider(){
+  const b=$('pzBody'); b.innerHTML='<div class="slider"></div>';
+  const grid=b.querySelector('.slider');
+  slider.board.forEach((tile,i)=>{
+    const d=document.createElement('div');
+    d.className='tile'+(tile===0?' blank':'');
+    if(tile!==0) d.textContent=tile;
+    d.onclick=()=>{
+      if(sliderMoves(slider.blank).includes(i)){
+        [slider.board[i],slider.board[slider.blank]]=[slider.board[slider.blank],slider.board[i]];
+        slider.blank=i; sfx('flip'); renderSlider();
+        if(slider.board.join(',')===[1,2,3,4,5,6,7,8,0].join(',')) puzzleWin(PUZZLES.find(p=>p.id==='puzzle'));
+      }
+    };
+    grid.appendChild(d);
+  });
+}
+
+/* —— 记忆配对 —— */
+let mem={cards:[], open:[], lock:false, pairs:0, total:0};
+const MEM_EMOJIS=['🐶','🐱','🦊','🐰','🐻','🐼','🐸','🦁'];
+function startMemory(){
+  const faces=shuffle(MEM_EMOJIS.concat(MEM_EMOJIS));
+  mem={cards:faces.map(f=>({f,matched:false})), open:[], lock:false, pairs:0, total:8};
+  renderMemory();
+}
+function renderMemory(){
+  const b=$('pzBody'); b.innerHTML='<div class="mem-grid"></div><div style="text-align:center;color:var(--muted);font-size:14px;" id="memPairs">已配对 0 / 8</div>';
+  const grid=b.querySelector('.mem-grid');
+  mem.cards.forEach((card,i)=>{
+    const d=document.createElement('div');
+    d.className='mem-card'+(card.matched?' matched': (mem.open.includes(i)?' flip':''));
+    d.innerHTML='<span class="back">❓</span><span class="face">'+card.f+'</span>';
+    d.onclick=()=>onMemClick(i);
+    grid.appendChild(d);
+  });
+  $('memPairs').textContent='已配对 '+mem.pairs+' / 8';
+}
+function onMemClick(i){
+  if(mem.lock) return;
+  const card=mem.cards[i];
+  if(card.matched || mem.open.includes(i)) return;
+  if(mem.open.length>=2) return;
+  mem.open.push(i); sfx('flip'); renderMemory();
+  if(mem.open.length===2){
+    mem.lock=true;
+    const [a,b]=mem.open;
+    if(mem.cards[a].f===mem.cards[b].f){
+      setTimeout(()=>{ mem.cards[a].matched=mem.cards[b].matched=true; mem.pairs++; mem.open=[]; mem.lock=false; sfx('correct'); renderMemory();
+        if(mem.pairs>=mem.total) puzzleWin(PUZZLES.find(p=>p.id==='memory'));
+      }, 380);
+    } else {
+      setTimeout(()=>{ mem.open=[]; mem.lock=false; renderMemory(); }, 800);
+    }
+  }
+}
+
+/* —— 找不同 —— */
+let spot={base:[], diffs:[], found:0};
+const SPOT_EMOJIS=['🍎','🍌','🍇','🍓','🌽','🥕','🍩','🍪','🧁','⚽','🚗','🚀'];
+function startSpot(){
+  const base=[]; for(let i=0;i<9;i++) base.push(SPOT_EMOJIS[randInt(0,SPOT_EMOJIS.length-1)]);
+  const right=base.slice();
+  const diffs=shuffle([0,1,2,3,4,5,6,7,8]).slice(0,3);
+  diffs.forEach(i=>{ let alt; do{ alt=SPOT_EMOJIS[randInt(0,SPOT_EMOJIS.length-1)]; }while(alt===right[i]); right[i]=alt; });
+  spot={base, right, diffs, found:0};
+  renderSpot();
+}
+function renderSpot(){
+  const b=$('pzBody'); b.innerHTML='<div class="spot-wrap">'+
+    '<div class="spot-panel"><h4>左边（原图）</h4><div class="spot-grid" id="spotLeft"></div></div>'+
+    '<div class="spot-panel"><h4>右边（找出不同）</h4><div class="spot-grid" id="spotRight"></div></div></div>'+
+    '<div style="text-align:center;color:var(--muted);font-size:14px;" id="spotFb">已找出 0 / 3 处不同</div>';
+  const L=$('spotLeft'), R=$('spotRight');
+  spot.base.forEach(em=>{ const d=document.createElement('div'); d.className='spot-cell'; d.textContent=em; L.appendChild(d); });
+  spot.right.forEach((em,i)=>{
+    const d=document.createElement('div'); d.className='spot-cell'; d.textContent=em;
+    d.onclick=()=>onSpotClick(i,d);
+    R.appendChild(d);
+  });
+}
+function onSpotClick(i,el){
+  if(el.classList.contains('found')) return;
+  if(spot.diffs.includes(i)){
+    el.classList.add('found'); spot.found++; sfx('correct'); voice('everest','correct','找到了！');
+    $('spotFb').textContent='已找出 '+spot.found+' / 3 处不同';
+    if(spot.found>=3) puzzleWin(PUZZLES.find(p=>p.id==='spot'));
+  } else {
+    el.classList.add('wrong'); sfxWrong();
+    setTimeout(()=>el.classList.remove('wrong'),300);
+    $('spotFb').textContent='这里一样哦，再找找～';
+  }
+}
+
+/* —— 迷宫 —— */
+let maze={grid:[], rows:6, cols:6, pos:{r:0,c:0}, goal:{r:5,c:5}};
+function mazeBuild(R,C){
+  const grid=[];
+  for(let r=0;r<R;r++){ grid[r]=[]; for(let c=0;c<C;c++){ grid[r][c]={wall:(r===0&&c===0)||(r===R-1&&c===C-1)?false:(Math.random()<0.28)}; } }
+  return grid;
+}
+function mazePath(grid,R,C,start,goal){
+  const key=p=>p.r+','+p.c;
+  const prev={}; prev[key(start)]=null;
+  const q=[start];
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(q.length){
+    const cur=q.shift();
+    if(cur.r===goal.r && cur.c===goal.c){
+      const path=[]; let p=key(cur);
+      while(p){ path.push(p); p=prev[p]; }
+      return path.reverse().slice(1).map(s=>{ const t=s.split(','); return {r:+t[0],c:+t[1]}; });
+    }
+    for(const d of dirs){
+      const nr=cur.r+d[0], nc=cur.c+d[1];
+      if(nr<0||nc<0||nr>=R||nc>=C) continue;
+      if(grid[nr][nc].wall) continue;
+      const k=nr+','+nc;
+      if(k in prev) continue;
+      prev[k]=key(cur); q.push({r:nr,c:nc});
+    }
+  }
+  return null;
+}
+function startMaze(){
+  const R=6,C=6; let grid;
+  do{ grid=mazeBuild(R,C); }while(!mazePath(grid,R,C,{r:0,c:0},{r:R-1,c:C-1}));
+  maze={grid, rows:R, cols:C, pos:{r:0,c:0}, goal:{r:R-1,c:C-1}};
+  renderMaze();
+}
+function renderMaze(){
+  const b=$('pzBody');
+  const cc=CHAR_MAP['zuma'];
+  b.innerHTML='<div class="maze-grid"></div><div style="text-align:center;color:var(--muted);font-size:14px;margin-top:8px;">点一点，帮'+cc.name+'走到🍖那里</div>';
+  const g=b.querySelector('.maze-grid');
+  maze.grid.forEach((row,r)=>row.forEach((cell,c)=>{
+    const d=document.createElement('div');
+    const isPos=(r===maze.pos.r&&c===maze.pos.c), isGoal=(r===maze.goal.r&&c===maze.goal.c);
+    d.className='maze-cell'+(cell.wall?' wall':'')+(isPos?' pet':'')+(isGoal?' goal':'');
+    d.innerHTML = cell.wall ? '🧱' : (isPos ? '<img src="'+cc.img+'" alt="'+cc.name+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">' : (isGoal ? '🍖' : ''));
+    d.onclick=()=>onMazeClick(r,c);
+    g.appendChild(d);
+  }));
+}
+function onMazeClick(r,c){
+  if(maze.grid[r][c].wall) return;
+  const steps=mazePath(maze.grid,maze.rows,maze.cols,maze.pos,{r,c});
+  if(!steps) return;
+  mazeMove(steps);
+}
+function mazeMove(steps){
+  if(!steps.length) return;
+  const step=steps.shift();
+  maze.pos=step; sfx('flip');
+  if(step.r===maze.goal.r && step.c===maze.goal.c){ renderMaze(); setTimeout(()=>puzzleWin(PUZZLES.find(p=>p.id==='maze')),350); return; }
+  renderMaze();
+  setTimeout(()=>mazeMove(steps),140);
+}
+
+/* —— 形状分类 —— */
+const SORT_SHAPES=[
+  {name:'圆形',   glyph:'●', color:'#e63b2e'},
+  {name:'三角形', glyph:'▲', color:'#f59e0b'},
+  {name:'正方形', glyph:'■', color:'#1f6feb'},
+];
+let sortGame={total:9, done:0, current:null};
+function startSort(){ sortGame={total:9, done:0, current:null}; renderSort(); }
+function renderSort(){
+  const s=SORT_SHAPES[randInt(0,SORT_SHAPES.length-1)];
+  sortGame.current=s;
+  const b=$('pzBody');
+  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;">完成 '+sortGame.done+' / '+sortGame.total+' · 把下面形状放进对应筐里</div>'+
+    '<div style="text-align:center;margin:16px 0;"><span class="sort-big" style="color:'+s.color+';">'+s.glyph+'</span></div>'+
+    '<div class="sort-bins"></div><div id="sortFb" style="text-align:center;color:var(--muted);min-height:22px;margin-top:8px;"></div>';
+  const bins=b.querySelector('.sort-bins');
+  shuffle(SORT_SHAPES).forEach(o=>{
+    const d=document.createElement('button'); d.className='sort-bin'; d.style.color=o.color;
+    d.innerHTML='<span class="sort-glyph">'+o.glyph+'</span><span style="font-size:13px;font-weight:700;">'+o.name+'</span>';
+    d.onclick=()=>onSortClick(d,o);
+    bins.appendChild(d);
+  });
+}
+function onSortClick(btn,o){
+  if(o.glyph===sortGame.current.glyph){
+    sfx('correct'); voice('chase','correct','分对啦！');
+    sortGame.done++;
+    if(sortGame.done>=sortGame.total){ puzzleWin(PUZZLES.find(p=>p.id==='sort')); }
+    else renderSort();
+  } else {
+    sfxWrong(); btn.classList.add('wrong');
+    setTimeout(()=>btn.classList.remove('wrong'),300);
+  }
+}
+
+/* —— 数量排序 —— */
+let orderGame={counts:[], sorted:[], picked:0};
+function startOrder(){
+  const counts=shuffle([1,2,3,4,5]).slice(0,3);
+  orderGame={counts, sorted:counts.slice().sort((a,b)=>a-b), picked:0};
+  renderOrder();
+}
+function renderOrder(){
+  const b=$('pzBody');
+  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;">按数量从少到多，依次点一点</div>'+
+    '<div class="order-cards"></div><div id="orderFb" style="text-align:center;color:var(--muted);min-height:22px;margin-top:8px;"></div>';
+  const box=b.querySelector('.order-cards');
+  orderGame.counts.forEach((cnt,i)=>{
+    const d=document.createElement('button'); d.className='order-card';
+    d.innerHTML='🍎'.repeat(cnt);
+    d.onclick=()=>onOrderClick(d,cnt);
+    box.appendChild(d);
+  });
+}
+function onOrderClick(btn,cnt){
+  if(btn.classList.contains('done')) return;
+  if(cnt===orderGame.sorted[orderGame.picked]){
+    btn.classList.add('done'); sfx('correct'); voice('tracker','correct','对啦！');
+    orderGame.picked++;
+    if(orderGame.picked>=orderGame.sorted.length) puzzleWin(PUZZLES.find(p=>p.id==='order'));
+  } else {
+    sfxWrong(); btn.classList.add('wrong');
+    setTimeout(()=>btn.classList.remove('wrong'),300);
+  }
+}
+
+/* ============ 家长中心 ============ */
+function renderParentTabs(){
+  $('recTable').innerHTML='';
+  const recs=state.records.slice().reverse();
+  if(recs.length===0){ $('recTable').innerHTML='<tr><td style="text-align:center;color:var(--muted);padding:16px;">暂无成绩记录</td></tr>'; }
+  recs.forEach(r=>{
+    const d=new Date(r.ts); const ts=d.getMonth()+1+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+r.type+'</td><td>'+(r.label||'')+'</td><td>'+r.level+'</td><td>'+r.score+'</td><td>'+r.accuracy+'%</td><td>'+r.duration+'s</td><td>'+ts+'</td>';
+    $('recTable').appendChild(tr);
+  });
+  const total=state.records.length;
+  const mathR=state.records.filter(r=>r.type==='数学救援');
+  const avgAcc=mathR.length? Math.round(mathR.reduce((s,r)=>s+r.accuracy,0)/mathR.length):0;
+  $('pcSummary').innerHTML=
+    '<div class="sum-item"><div class="v">'+total+'</div><div>完成局数</div></div>'+
+    '<div class="sum-item"><div class="v">'+mathR.length+'</div><div>数学局数</div></div>'+
+    '<div class="sum-item"><div class="v">'+avgAcc+'%</div><div>平均正确率</div></div>';
+}
+function renderParentSettings(){
+  const WD=['周日','周一','周二','周三','周四','周五','周六'];
+  const OPTS=[0,15,20,30,45,60,90];
+  const box=$('weekdayLimits'); box.innerHTML='';
+  WD.forEach((name,i)=>{
+    const row=document.createElement('div'); row.className='setting-row';
+    const label=document.createElement('span');
+    label.innerHTML = (i===getTodayWeekday()) ? '<b>'+name+'（今天）</b>' : name;
+    row.appendChild(label);
+    const sel=document.createElement('select'); sel.className='set-input';
+    OPTS.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent = v===0?'不玩':(v+' 分钟'); if(v===(state.settings.weekdays[i]||30)) o.selected=true; sel.appendChild(o); });
+    sel.onchange=e=>{ state.settings.weekdays[i]=parseInt(e.target.value,10); saveState(); updateTimer(); sfx('click'); };
+    row.appendChild(sel);
+    box.appendChild(row);
+  });
+  $('setSound').classList.toggle('on', state.settings.sound);
+  $('setSound').textContent=state.settings.sound?'开':'关';
+}
+function onEnterParent(){
+  renderParentTabs(); renderParentSettings();
+  $('pcRecords').style.display=''; $('pcSettings').style.display='none';
+  document.querySelectorAll('.pc-tab').forEach(t=>t.classList.toggle('on', t.dataset.tab==='records'));
+  show('screen-parent');
+}
+
+/* ============ 家长算术验证 ============ */
+let verifyTarget=null; // 'parent' | 'lock'
+let currentUnlock={a:0,b:0,ans:0};
+function newUnlock(){
+  const a=randInt(11,25), b=randInt(11,25);
+  return {a,b,ans:a*b};
+}
+function buildVerifyQuestion(){
+  currentUnlock=newUnlock();
+  $('vQ').textContent=currentUnlock.a+' × '+currentUnlock.b+' = ?';
+  $('vInput').value=''; $('vErr').textContent='';
+}
+function buildLockQuestion(){
+  currentUnlock=newUnlock();
+  $('lQ').textContent=currentUnlock.a+' × '+currentUnlock.b+' = ?';
+  $('lInput').value=''; $('lErr').textContent='';
+}
+function verifyAnswer(inputEl, errEl, onSuccess){
+  const v=(inputEl.value||'').trim();
+  if(v===String(currentUnlock.ans)){ errEl.textContent=''; onSuccess(); }
+  else { errEl.textContent='答案不对，再想想～'; sfxWrong(); }
+}
+
+/* ============ 事件绑定 ============ */
+function bindEvents(){
+  $('btnHome').onclick=()=>{ gameActive=false; sfx('click'); show('screen-lobby'); };
+  $('btnParent').onclick=()=>{ gameActive=false; buildVerifyQuestion(); verifyTarget='parent'; showOverlay('overlay-verify'); };
+  $('btnMath').onclick=()=>{ sfx('click'); renderLevels(); $('levelCards').style.display=''; $('mathPlay').style.display='none'; $('mathResult').style.display='none'; show('screen-math'); };
+  $('btnPuzzle').onclick=()=>{ sfx('click'); renderPuzzles(); $('puzzleGrid').style.display=''; $('puzzlePlay').style.display='none'; show('screen-puzzle'); };
+  $('btnSticker').onclick=()=>{ sfx('click'); renderStickers(); show('screen-sticker'); };
+  $('btnStkBack').onclick=()=>{ sfx('click'); show('screen-lobby'); };
+  $('btnBackMath').onclick=()=>{ gameActive=false; sfx('click'); renderLevels(); $('levelCards').style.display=''; show('screen-math'); };
+  $('btnAgain').onclick=()=>{ sfx('click'); startMath(math.level||1); };
+  $('btnPzBack').onclick=()=>{ sfx('click'); backPuzzleList(); };
+  $('btnPcBack').onclick=()=>{ sfx('click'); show('screen-lobby'); };
+
+  // 家长中心 tab
+  document.querySelectorAll('.pc-tab').forEach(t=>{
+    t.onclick=()=>{ sfx('click');
+      document.querySelectorAll('.pc-tab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+      $('pcRecords').style.display = t.dataset.tab==='records' ? '' : 'none';
+      $('pcSettings').style.display = t.dataset.tab==='settings' ? '' : 'none';
+    };
+  });
+
+  // 设置
+  $('setSound').onclick=()=>{ state.settings.sound=!state.settings.sound; saveState(); renderParentSettings(); if(state.settings.sound) sfx('click'); };
+  $('btnReset').onclick=()=>{ if(confirm('确定要清除所有成绩与贴纸吗？此操作不可恢复。')){ state.records=[]; state.stickers={}; saveState(); renderParentTabs(); renderStickers(); updateStickerPill(); sfx('click'); } };
+
+  // 验证弹层
+  $('vOk').onclick=()=>verifyAnswer($('vInput'), $('vErr'), ()=>{ hideOverlay('overlay-verify'); onEnterParent(); sfxWin(); });
+  $('vCancel').onclick=()=>hideOverlay('overlay-verify');
+  $('vInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('vOk').onclick(); });
+
+  // 时间锁
+  $('lOk').onclick=()=>verifyAnswer($('lInput'), $('lErr'), ()=>{
+    sfxWin();
+    $('lockUnlockArea').style.display='none';
+    $('lockChoices').style.display='';
+  });
+  $('lInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('lOk').onclick(); });
+  $('lMore').onclick=()=>{ state.time.extraMinutes+=15; state.time.stopToday=false; saveState(); lockShown=false; gameActive=true; updateTimer(); hideOverlay('overlay-lock'); sfxWin(); };
+  $('lStop').onclick=()=>{ state.time.stopToday=true; saveState(); $('lockChoices').style.display='none'; $('lockStopped').style.display=''; updateTimer(); };
+}
+
+/* ============ 计时主循环 ============ */
+setInterval(function(){
+  if(state.time.date!==todayKey()){
+    state.time.date=todayKey(); state.time.seconds=0; state.time.extraMinutes=0; state.time.stopToday=false; saveState();
+    lockShown=false;
+  }
+  if(gameActive){
+    state.time.seconds++;
+    saveState();
+  }
+  updateTimer();
+  if(isLocked() && !lockShown){ triggerLock(); }
+}, 1000);
+
+window.addEventListener('beforeunload', ()=>{ if(gameActive){ /* 不额外处理，秒数据已持续保存 */ } saveState(); });
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveState(); });
+
+/* ============ 移动端行为优化 ============ */
+document.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('dblclick', e=>e.preventDefault());
+document.addEventListener('gesturestart', e=>e.preventDefault());
+
+/* ============ 启动 ============ */
+renderLobby();
+bindEvents();
+updateTimer();
+if(isLocked()){
+  lockShown=true;
+  if(state.time.stopToday){
+    $('lockUnlockArea').style.display='none'; $('lockChoices').style.display='none'; $('lockStopped').style.display='';
+  } else {
+    buildLockQuestion(); $('lockUnlockArea').style.display='block'; $('lockChoices').style.display='none'; $('lockStopped').style.display='none';
+  }
+  showOverlay('overlay-lock');
+}
+</script>
+</body>
+</html>

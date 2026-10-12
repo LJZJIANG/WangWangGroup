@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汪汪队主题数学益智小游戏 · 产品需求文档（PRD）</title>
+<style>
+  :root {
+    --blue: #1f6feb;
+    --red: #e63b2e;
+    --yellow: #ffb020;
+    --green: #2e9e5b;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --bg: #f7f9fc;
+    --card: #ffffff;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.75;
+    font-size: 16px;
+  }
+  .layout { display: flex; max-width: 1180px; margin: 0 auto; }
+  /* 侧边目录 */
+  nav.toc {
+    width: 250px; flex: 0 0 250px;
+    position: sticky; top: 0; align-self: flex-start;
+    height: 100vh; overflow-y: auto;
+    padding: 28px 18px;
+    border-right: 1px solid var(--line);
+    background: #fbfcfe;
+  }
+  nav.toc .brand { font-weight: 700; margin-bottom: 18px; color: var(--blue); }
+  nav.toc a {
+    display: block; color: var(--muted); text-decoration: none;
+    padding: 5px 10px; border-radius: 8px; font-size: 13.5px;
+  }
+  nav.toc a:hover { color: var(--blue); background: #eef4ff; }
+  nav.toc a.level2 { padding-left: 22px; }
+  main { flex: 1; min-width: 0; padding: 40px 48px 80px; }
+  h1 { font-size: 30px; margin: 0 0 6px; }
+  .subtitle { color: var(--muted); margin-bottom: 10px; font-size: 15px; }
+  .meta { font-size: 13px; color: var(--muted); border-bottom: 2px solid var(--line); padding-bottom: 16px; margin-bottom: 28px; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .tag.p0 { background: #fee2e2; color: #b91c1c; }
+  .tag.p1 { background: #fef3c7; color: #92400e; }
+  .tag.out { background: #e5e7eb; color: #4b5563; }
+  h2 {
+    font-size: 22px; margin: 44px 0 14px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--line);
+  }
+  h2 .num { color: var(--blue); margin-right: 8px; }
+  h3 { font-size: 17px; margin: 26px 0 10px; color: #111827; }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 24px; }
+  li { margin: 5px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; background: var(--card); }
+  th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: #f3f6fb; font-weight: 600; white-space: nowrap; }
+  code { background: #f1f5f9; padding: 1px 6px; border-radius: 5px; font-size: 13.5px; color: #b91c1c; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 22px; margin: 16px 0; }
+  .card.callout { background: #fffdf5; border-color: #fde68a; }
+  .card.warn { background: #fef6f6; border-color: #fecaca; }
+  .fr { border-left: 4px solid var(--blue); background: var(--card); border-radius: 8px; padding: 16px 20px; margin: 18px 0; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .fr .title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .fr .title .id { color: var(--blue); }
+  .pill { display: inline-block; background: #eef4ff; color: var(--blue); border-radius: 6px; padding: 1px 8px; font-size: 12px; margin-left: 6px; vertical-align: middle; }
+  .label { font-weight: 600; color: #374151; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; }
+    nav.toc { width: 100%; flex: none; height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { padding: 24px 18px 60px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* 交互演示 */
+  .demo { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin: 16px 0; background: #fff; }
+  .demo .demo-head { background: #f3f6fb; padding: 8px 14px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .demo .demo-body { padding: 18px; }
+  .game-frame { text-align: center; padding: 10px 4px; }
+  .char { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 20px; }
+  .q { font-size: 30px; font-weight: 700; margin: 8px 0 16px; }
+  .opts { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .opt {
+    min-width: 60px; padding: 12px 18px; font-size: 20px; font-weight: 600;
+    border: 2px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer;
+  }
+  .opt:hover { border-color: var(--blue); }
+  .opt.ok { background: #d1fae5; border-color: var(--green); }
+  .opt.no { background: #fee2e2; border-color: var(--red); }
+  .feedback { margin-top: 12px; font-size: 14px; min-height: 22px; color: var(--muted); }
+  .stars { color: #f59e0b; font-size: 18px; }
+  button.primary {
+    background: var(--blue); color: #fff; border: 0; padding: 10px 20px;
+    border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: 600;
+  }
+  button.primary:hover { background: #1857c4; }
+  .lock-modal {
+    border-radius: 14px; border: 2px solid var(--red); padding: 24px;
+    text-align: center; background: #fff7f7; max-width: 460px; margin: 0 auto;
+  }
+  .lock-modal .lock-title { font-size: 20px; font-weight: 700; color: var(--red); margin-bottom: 6px; }
+  .lock-q { font-size: 22px; font-weight: 700; margin: 12px 0; }
+  .lock-modal input { font-size: 18px; padding: 8px 12px; width: 140px; text-align: center; border-radius: 8px; border: 1px solid var(--line); }
+  .foot { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <div class="brand">🐾 PRD 目录</div>
+    <a href="#s1">1. 背景与目标</a>
+    <a href="#s2">2. 范围</a>
+    <a href="#s3">3. 角色与对象模型</a>
+    <a href="#s4">4. 核心流程</a>
+    <a href="#s5">5. 功能需求</a>
+    <a href="#s5-fr1" class="level2">FR-01 主界面 / 角色大厅</a>
+    <a href="#s5-fr2" class="level2">FR-02 加减法练习（分级）</a>
+    <a href="#s5-fr3" class="level2">FR-03 益智小游戏</a>
+    <a href="#s5-fr4" class="level2">FR-04 奖励与贴纸集</a>
+    <a href="#s5-fr5" class="level2">FR-05 历史成绩记录</a>
+    <a href="#s5-fr6" class="level2">FR-06 家长中心</a>
+    <a href="#s5-fr7" class="level2">FR-07 时间锁与家长解锁</a>
+    <a href="#s5-fr8" class="level2">FR-08 角色交互动画与声音</a>
+    <a href="#s6">6. 共享规则与异常</a>
+    <a href="#s7">7. 开放问题</a>
+  </nav>
+
+  <main>
+    <h1>汪汪队主题数学益智小游戏</h1>
+    <div class="subtitle">产品需求文档（PRD） · 面向 5–6 岁儿童的算术与益智网页游戏</div>
+    <div class="meta">
+      版本 v0.1（草稿） · 更新日期 2026-10-10 · 状态：待评审
+    </div>
+
+    <!-- 1 背景与目标 -->
+    <h2 id="s1"><span class="num">1.</span>背景与目标</h2>
+    <p>5–6 岁处于幼小衔接阶段，是数感与基础运算能力形成的关键期。以“汪汪队”角色作为学习伙伴，可以把枯燥的加减法练习包装为过关救援游戏，让孩子在“帮助角色完成任务”的语境中主动练习算术；同时叠加益智小游戏以锻炼观察力、记忆力和逻辑分类能力。</p>
+    <p>本产品需要在一个网页内同时满足三方的诉求：</p>
+    <table>
+      <tr><th>相关方</th><th>诉求</th><th>对应设计目标</th></tr>
+      <tr><td>儿童玩家（5–6 岁）</td><td>好玩、有熟悉角色、操作简单、获得即时鼓励</td><td>角色化关卡、大字大按钮、语音/动画反馈、奖励贴纸</td></tr>
+      <tr><td>家长</td><td>能看效果、能控制时长、能查看成绩</td><td>家长中心、单日时长限制、历史成绩记录</td></tr>
+      <tr><td>产品方</td><td>一套可复用、可扩展的轻量网页游戏</td><td>纯前端自包含实现，分级题库可配置</td></tr>
+    </table>
+    <p><strong>目标（可观察结果，非量化承诺）：</strong>孩子能在无家长长时间陪同下独立完成一局分级加减法练习并获得正向反馈；家长能在孩子进入游戏后看到当次练习的分级结果，并能在到达时长上限时通过“家长解锁”有效中止或延长游玩。</p>
+
+    <!-- 2 范围 -->
+    <h2 id="s2"><span class="num">2.</span>范围</h2>
+    <div class="card">
+      <p class="label">最小可发布旅程（P0）</p>
+      <ol>
+        <li>打开页面，进入角色大厅，选择角色（或直接开始）。</li>
+        <li>在「数学救援」中选择难度（简单 / 中等 / 困难），完成一局 10 题加减法，看到得分与奖励。</li>
+        <li>进入任一益智小游戏完成一局，获得贴纸奖励。</li>
+        <li>家长进入「家长中心」查看本日累计时长与历史成绩，并可调整时长上限。</li>
+        <li>当日累计游玩到达上限后，游戏被锁定，家长通过算术解锁后可选择「再玩 15 分钟」或「今日结束」。</li>
+      </ol>
+    </div>
+    <table>
+      <tr><th>级别</th><th>内容</th></tr>
+      <tr><td><span class="tag p0">P0</span></td><td>角色大厅、分级加减法（3 档）、时间锁与家长解锁、家长中心（时长设置）、历史成绩记录、基础奖励贴纸、3 个核心益智小游戏（拼图 / 记忆配对 / 找不同）、角色交互动画与提示音效</td></tr>
+      <tr><td><span class="tag p1">P1</span></td><td>更多益智小游戏（迷宫 / 形状分类 / 数量排序）、完整角色配音与背景音乐、角色解锁进度、成绩周视图/图表、家长设置 PIN 解锁方式</td></tr>
+      <tr><td><span class="tag out">暂不纳入</span></td><td>多账号/多档案、在线排行榜、真实货币支付、社交分享、后台服务器与云同步（本版为纯前端本地存储）</td></tr>
+    </table>
+    <div class="card callout">
+      <p class="label">知识产权提示</p>
+      <p>“汪汪队”（PAW Patrol）及其角色形象、名称、配色为权利方（Spin Master / Nickelodeon）持有的注册商标与版权内容。本 PRD 以“汪汪队角色”作为主题元素的前提是<strong>已获得授权或仅用于个人家庭学习用途</strong>，正式对外发布前需确认授权边界，具体处理见 <a href="#s7">第 7 节开放问题</a>。本版需求文档默认按“个人家庭自用 / 未上架”场景编写。</p>
+    </div>
+
+    <!-- 3 角色与对象模型 -->
+    <h2 id="s3"><span class="num">3.</span>角色与对象模型</h2>
+    <h3>3.1 用户角色</h3>
+    <table>
+      <tr><th>角色</th><th>默认行为</th><th>可见/可操作范围</th></tr>
+      <tr><td>儿童玩家</td><td>进入即玩，无需登录</td><td>角色大厅、数学救援、益智小游戏、自己的贴纸集；<strong>不可进入家长中心、不可修改时长、不可解除时间锁</strong></td></tr>
+      <tr><td>家长</td><td>通过显式入口（长按 / 算术验证）进入家长中心</td><td>查看成绩、设置时长上限、解锁时间锁、重置成绩、查看隐私与说明</td></tr>
+    </table>
+
+    <h3>3.2 核心对象</h3>
+    <table>
+      <tr><th>对象</th><th>说明</th><th>关键字段</th></tr>
+      <tr><td>题目（Question）</td><td>一道加减法题</td><td>等级、算式、正确答案、干扰选项、可选图示（骨头/狗狗数）</td></tr>
+      <tr><td>练习回合（Round）</td><td>一局 10 道题</td><td>模式、等级、题目列表、当前题号、得分、正确数、开始/结束时间</td></tr>
+      <tr><td>小游戏局（Puzzle）</td><td>一局益智小游戏</td><td>类型、结果（成功/失败）、用时、得分</td></tr>
+      <tr><td>成绩记录（Record）</td><td>一次完成的练习/小游戏结果</td><td>类型、等级、得分、正确率、用时、完成日期时间</td></tr>
+      <tr><td>奖励贴纸（Sticker）</td><td>完成的即时奖励</td><td>所属角色、名称、是否已获得</td></tr>
+      <tr><td>时间锁状态（TimeLock）</td><td>当日游玩时间账本</td><td>当日累计时长、时长上限、是否锁定、剩余可延长时间</td></tr>
+      <tr><td>家长设置（ParentConfig）</td><td>家长可调配置</td><td>单日时长上限、解锁方式（算术 / PIN）、是否开启音效</td></tr>
+    </table>
+
+    <h3>3.3 汪汪队角色与玩法映射（默认关系）</h3>
+    <table>
+      <tr><th>角色</th><th>职责 / 代表玩法</th><th>主题色</th></tr>
+      <tr><td>莱德 Ryder</td><td>队长，主界面引导与语音提示</td><td>红 / 白</td></tr>
+      <tr><td>阿奇 Chase</td><td>计数与形状/颜色分类（警察/秩序）</td><td>蓝</td></tr>
+      <tr><td>毛毛 Marshall</td><td>「数学救援」简单题（火场救援）</td><td>红</td></tr>
+      <tr><td>天天 Skye</td><td>「数学救援」中等题（飞行任务）</td><td>粉</td></tr>
+      <tr><td>小砾 Rubble</td><td>拼图（施工搭建）</td><td>黄</td></tr>
+      <tr><td>灰灰 Rocky</td><td>记忆卡片配对（环保回收配对）</td><td>绿</td></tr>
+      <tr><td>路马 Zuma</td><td>迷宫（水上救援）</td><td>橙</td></tr>
+      <tr><td>珠珠 Everest</td><td>找不同（雪地场景）</td><td>青</td></tr>
+      <tr><td>小克 Tracker</td><td>数量排序 / 听音辨数（丛林）</td><td>棕</td></tr>
+    </table>
+    <p class="label">说明：</p><p>角色与玩法的映射为本需求建议的默认方案，便于孩子建立“角色 = 玩法”的稳定认知；具体美术形象替换请结合授权情况调整（见开放问题）。</p>
+
+    <!-- 4 核心流程 -->
+    <h2 id="s4"><span class="num">4.</span>核心流程</h2>
+    <h3>4.1 总体结构</h3>
+    <table>
+      <tr><th>区域</th><th>职责</th></tr>
+      <tr><td>角色大厅（首页）</td><td>选择角色 / 进入「数学救援」或「小游戏」入口</td></tr>
+      <tr><td>数学救援</td><td>选择难度 → 答题 → 结算（得分 + 奖励 + 记录成绩）</td></tr>
+      <tr><td>益智小游戏</td><td>选择小游戏 → 游玩 → 结算（贴纸 + 记录成绩）</td></tr>
+      <tr><td>我的贴纸</td><td>展示已获得的奖励贴纸</td></tr>
+      <tr><td>家长中心</td><td>成绩记录、时长设置、解锁入口（需验证）</td></tr>
+    </table>
+
+    <h3>4.2 一局数学救援的流程</h3>
+    <ol>
+      <li>孩子在大厅点击「数学救援」。</li>
+      <li>弹出三级难度选择卡（简单 / 中等 / 困难），每张卡显示对应角色与示例。</li>
+      <li>开始后依次呈现 10 道题；每题展示算式、可选实物图示与 3 个答案选项（大字大按钮）。</li>
+      <li>答对：播放鼓励动画 + 获得“骨头”分值；答错：温和提示 + 展示计数辅助，可再试一次，再错则进入下一题并记录。</li>
+      <li>10 题结束进入结算页：显示正确数、得星数、获得的角色贴纸，并把结果写入成绩记录。</li>
+    </ol>
+
+    <h3>4.3 时间锁流程</h3>
+    <ol>
+      <li>系统实时累计“当日在游戏内（数学救援 + 小游戏）的有效游玩时长”。</li>
+      <li>当累计时长到达上限（默认 30 分钟）时，当前界面立即弹出锁定层，暂停所有游戏操作。</li>
+      <li>锁定层显示汪汪队角色提示“今天玩得真棒，该休息啦～”并给出家长解锁入口。</li>
+      <li>家长点击「家长解锁」，回答一道对成人简单、对儿童较难的算术题（默认乘法，如 <code>24 × 13 = ?</code>）。</li>
+      <li>答对后出现两个选项：「再玩 15 分钟」或「今天先到这里」。选择前者可临时延长时间；选择后者游戏保持锁定直至次日（按本地日期判断）。</li>
+    </ol>
+
+    <!-- 5 功能需求 -->
+    <h2 id="s5"><span class="num">5.</span>功能需求</h2>
+    <p>以下为各模块的详细功能需求。交互密集的 P0 界面附带可点击的交互示例，示例标签与需求编号保持一致。</p>
+
+    <!-- FR-01 -->
+    <div class="fr" id="s5-fr1">
+      <div class="title"><span class="id">FR-01</span> 主界面 / 角色大厅</div>
+      <p><span class="label">目的：</span>作为游戏入口，让孩子一眼看到熟悉角色与两大玩法入口，操作零门槛。</p>
+      <p><span class="label">布局：</span>顶部为标题与当日剩余时长提示（图标 + 圆形进度）；中部为角色列表（横向可滑动）；底部为两个大入口按钮「数学救援」「益智小游戏」，以及「我的贴纸」。右下角为低调的家长中心入口。</p>
+      <ul>
+        <li><span class="label">触发：</span>打开页面即进入大厅；无加载/登录门槛。</li>
+        <li><span class="label">处理规则：</span>首次进入播放莱德欢迎语；点击角色仅做“选中 + 打招呼”反馈，不影响玩法；两个入口按钮 hover/点击有放大效果。</li>
+        <li><span class="label">家长中心入口：</span>默认低调呈现（齿轮图标），点击需通过“家长验证”（见 FR-06），避免孩子误入。</li>
+        <li><span class="label">异常：</span>本地存储读取失败时显示默认大厅并以空成绩启动，不阻塞进入。</li>
+      </ul>
+    </div>
+
+    <!-- FR-02 -->
+    <div class="fr" id="s5-fr2">
+      <div class="title"><span class="id">FR-02</span> 加减法练习（分级）<span class="pill">P0</span></div>
+      <p><span class="label">目的：</span>通过分级加减法帮助孩子按能力阶梯练习，难度从“借助实物计数”逐步过渡到“心算”。</p>
+      <h3>难度分级（题库规则）</h3>
+      <table>
+        <tr><th>等级</th><th>数值范围</th><th>出题规则</th><th>示例</th><th>默认角色</th></tr>
+        <tr><td>简单 L1</td><td>0–10</td><td>单一加/减法，结果 ∈ [0,10]，不进位不退位，可带实物图示</td><td>2+3、7−2、4+5</td><td>毛毛</td></tr>
+        <tr><td>中等 L2</td><td>0–20</td><td>结果 ∈ [0,20]，含进位加法，减法不退位；可带图示</td><td>8+5、12−2、9+6</td><td>天天</td></tr>
+        <tr><td>困难 L3</td><td>0–20</td><td>含进位加法与退位减法，可选两步混合</td><td>13−5、7+8、6+9−3</td><td>莱德</td></tr>
+      </table>
+      <ul>
+        <li><span class="label">一局结构：</span>固定 10 题，题目在对应等级题库内随机不重复抽取；数量不足时允许重复。</li>
+        <li><span class="label">计分规则：</span>答对一题 +10 分；连续答对可额外获得星星鼓励（见第 6 节计分）。</li>
+        <li><span class="label">作答与容错：</span>每题提供 3 个选项；<strong>首次答错不扣分</strong>，弹出计数辅助（把数字画成骨头/狗狗分步演示），允许再试一次；再次答错则记录为错误并进入下一题。</li>
+        <li><span class="label">结果：</span>结算页显示正确题数、得分、获得贴纸，并写入一条成绩记录。</li>
+        <li><span class="label">退出/中断：</span>中途退出（返回大厅/关闭页面）时，本局不计入成绩，但已答时间累计到当日时长。</li>
+      </ul>
+
+      <div class="demo">
+        <div class="demo-head">交互示例 · FR-02 简单档答题（点击选项试试）</div>
+        <div class="demo-body">
+          <div class="game-frame">
+            <div class="char">
+              <span class="avatar" style="background:#e63b2e;">🐕</span>
+              <span>毛毛 · 简单</span>
+            </div>
+            <div class="q" id="demoQ">3 + 4 = ?</div>
+            <div class="stars" id="demoStars">★★☆</div>
+            <div class="opts" id="demoOpts">
+              <button class="opt">5</button>
+              <button class="opt">7</button>
+              <button class="opt">8</button>
+            </div>
+            <div class="feedback" id="demoFb">选择答案，答错会显示计数辅助哦～</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FR-03 -->
+    <div class="fr" id="s5-fr3">
+      <div class="title"><span class="id">FR-03</span> 益智小游戏 <span class="pill">P0 核心 / P1 扩展</span></div>
+      <p><span class="label">目的：</span>在算术之外，通过多种小游戏锻炼观察力、记忆力、空间与分类逻辑，增加可玩性与时长多样性。</p>
+      <table>
+        <tr><th>小游戏</th><th>级别</th><th>角色</th><th>玩法定义</th><th>完成条件 / 奖励</th></tr>
+        <tr><td>拼图</td><td>P0</td><td>小砾</td><td>拖动打乱的图块还原完整画面，块数随难度 3×3 / 4×4</td><td>拼完整即成功，得贴纸</td></tr>
+        <tr><td>记忆卡片配对</td><td>P0</td><td>灰灰</td><td>翻牌找相同图案，翻两张匹配则消除</td><td>全部配对成功得贴纸</td></tr>
+        <tr><td>找不同</td><td>P0</td><td>珠珠</td><td>两幅相似场景图找出 N 处不同，点中即标记</td><td>全部找出得贴纸</td></tr>
+        <tr><td>迷宫</td><td>P1</td><td>路马</td><td>引导角色从起点走到出口，路线需避开障碍</td><td>到达出口得贴纸</td></tr>
+        <tr><td>形状/颜色分类</td><td>P1</td><td>阿奇</td><td>将散落物品拖入正确分类框（颜色/形状/大小）</td><td>全部正确得贴纸</td></tr>
+        <tr><td>数量排序</td><td>P1</td><td>小克</td><td>按数量/大小对卡片从少到多排序</td><td>排序正确得贴纸</td></tr>
+      </table>
+      <ul>
+        <li><span class="label">触发：</span>大厅「益智小游戏」入口 → 选择小游戏 → 开始。</li>
+        <li><span class="label">处理规则：</span>每个小游戏开局随机化内容；操作以“点击/拖拽”为主，符合 5–6 岁触控与鼠标习惯；失败可随时重来，不设惩罚。</li>
+        <li><span class="label">结果：</span>成功则弹贴纸奖励并写入成绩记录（类型=对应小游戏，成绩=完成时间或步数）。</li>
+        <li><span class="label">异常：</span>长时间无操作显示温和的“需要帮忙吗？”提示，不强制退出。</li>
+      </ul>
+    </div>
+
+    <!-- FR-04 -->
+    <div class="fr" id="s5-fr4">
+      <div class="title"><span class="id">FR-04</span> 奖励与贴纸集 <span class="pill">P0</span></div>
+      <p><span class="label">目的：</span>用即时、正向的奖励激励孩子完成练习，形成“完成任务 → 收集贴纸”的正反馈。</p>
+      <ul>
+        <li><span class="label">奖励来源：</span>每完成一局数学救援或一个小游戏，获得与该角色/玩法对应的贴纸 1 枚；同一贴纸可重复获得并累计数量。</li>
+        <li><span class="label">贴纸集：</span>「我的贴纸」页面按角色分组展示已获得贴纸（未获得显示为灰色剪影）。</li>
+        <li><span class="label">处理规则：</span>奖励为本地记录，不与真实货币挂钩；不设置“扣分/失去奖励”的惩罚机制。</li>
+        <li><span class="label">结果：</span>获得贴纸时播放全屏撒花/角色欢呼动画，并同步更新贴纸集计数。</li>
+      </ul>
+    </div>
+
+    <!-- FR-05 -->
+    <div class="fr" id="s5-fr5">
+      <div class="title"><span class="id">FR-05</span> 历史成绩记录 <span class="pill">P0</span></div>
+      <p><span class="label">目的：</span>让家长了解孩子的练习频次、正确率与倾向，作为陪伴与引导的依据。</p>
+      <ul>
+        <li><span class="label">记录范围：</span>每次<strong>完整完成</strong>的数学救援或小游戏，各写入一条记录；中断不计入。</li>
+        <li><span class="label">记录字段：</span>类型（数学救援/小游戏名）、等级、得分、正确率（正确题数/总题数）、用时、完成时间。</li>
+        <li><span class="label">展示：</span>在家长中心以列表展示，支持按类型/等级筛选，按时间倒序；提供本日、累计的简单汇总（完成局数、平均正确率）。</li>
+        <li><span class="label">处理规则：</span>数据存储于浏览器本地（LocalStorage），本次变更范围不包含云同步。</li>
+        <li><span class="label">边界：</span>清空浏览器数据会导致记录丢失，家长中心内需说明“数据仅保存在本机”，并提供“导出/重置”入口（P1）。</li>
+      </ul>
+    </div>
+
+    <!-- FR-06 -->
+    <div class="fr" id="s5-fr6">
+      <div class="title"><span class="id">FR-06</span> 家长中心 <span class="pill">P0</span></div>
+      <p><span class="label">目的：</span>提供家长专属的配置与查看入口，是时长控制和成绩查看的唯一窗口。</p>
+      <ul>
+        <li><span class="label">进入验证：</span>从大厅点击家长中心，先弹出“家长验证”算术题（同时间锁验证难度），答对方可进入；连续答错 3 次锁定入口 60 秒。</li>
+        <li><span class="label">可操作项：</span>查看历史成绩与汇总、设置单日时长上限（15 / 20 / 30 / 45 / 60 分钟，默认 30）、切换解锁方式（算术题 / PIN，PIN 为 P1）、开关音效、重置成绩、查看数据存储与隐私说明。</li>
+        <li><span class="label">权限：</span>家长中心的任何配置变更仅对家长可见入口生效；儿童无法绕过进入。</li>
+        <li><span class="label">结果：</span>设置项修改即时保存；时长上限修改后立即作用于当日本次累计。</li>
+      </ul>
+    </div>
+
+    <!-- FR-07 -->
+    <div class="fr" id="s5-fr7">
+      <div class="title"><span class="id">FR-07</span> 时间锁与家长解锁 <span class="pill">P0</span></div>
+      <p><span class="label">目的：</span>保护儿童用眼与作息，到点强制暂停，由家长决定是否继续，是产品的关键安全机制。</p>
+      <ul>
+        <li><span class="label">计时口径：</span>仅累计“进入游戏内容”的有效时长（数学救援答题页 + 各小游戏进行中）；大厅、结算页、家长中心不计入。</li>
+        <li><span class="label">上限：</span>默认单日 30 分钟，家长可在家长中心调整（见 FR-06）。到达上限触发锁定。</li>
+        <li><span class="label">锁定行为：</span>立即覆盖在当前界面之上，暂停/停止所有游戏计时与交互；锁定后即使刷新页面仍保持锁定（依据本地当日累计时长判断）。</li>
+        <li><span class="label">解锁方式（默认算术题）：</span>出示一道对成人简单、对儿童较难的算术题（默认两位数乘法，如 <code>24 × 13</code>），答案需输入正确。答错可重试，连续答错 3 次进入 60 秒冷却。</li>
+        <li><span class="label">解锁结果：</span>答对后提供「再玩 15 分钟」（临时延时，到达新上限再次锁定）与「今天先到这里」（保持锁定至次日，按本地日期 0 点重置）两个选项。</li>
+        <li><span class="label">异常：</span>若系统时间/日期异常导致累计时长异常，保守策略为“优先锁定”，由家长在家长中心手动重置。</li>
+      </ul>
+
+      <div class="demo">
+        <div class="demo-head">交互示例 · FR-07 时间锁锁定弹窗</div>
+        <div class="demo-body">
+          <div class="lock-modal">
+            <div class="lock-title">⏰ 游戏已锁定</div>
+            <p style="margin:2px 0 10px;font-size:14px;color:var(--muted);">今天玩得真棒，该休息啦～<br>请让家长帮你解锁。</p>
+            <div class="lock-q">24 × 13 = ?</div>
+            <input type="text" inputmode="numeric" placeholder="家长输入答案" id="lockInput">
+            <br><br>
+            <button class="primary" id="lockBtn">家长解锁</button>
+            <div class="feedback" id="lockFb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FR-08 -->
+    <div class="fr" id="s5-fr8">
+      <div class="title"><span class="id">FR-08</span> 角色交互动画与声音 <span class="pill">P0 核心 / P1 扩展</span></div>
+      <p><span class="label">目的：</span>通过汪汪队成员的动画与声音，让每次操作都有即时、直观、正向的反馈，让“帮助角色完成任务”的语境贯穿全程，提升沉浸感与学习动机。</p>
+      <p><span class="label">适用范围：</span>本模块为<strong>跨模块统一规则</strong>，作用于角色大厅、数学救援、益智小游戏、贴纸奖励与时间锁等所有界面；各模块不再单独重复定义动画/声音规则，统一引用本模块。</p>
+
+      <h3>事件 → 动画 → 声音 映射</h3>
+      <table>
+        <tr><th>触发事件</th><th>交互动画</th><th>声音反馈</th><th>级别</th></tr>
+        <tr><td>进入大厅 / 首次进入</td><td>莱德出现，挥手打招呼</td><td>莱德欢迎语「汪汪队，出发啦！」</td><td>P0</td></tr>
+        <tr><td>点击选中某个角色</td><td>角色跳跃 / 摇摆 + 身体前倾</td><td>角色专属招呼（如「我是毛毛！」）</td><td>P0</td></tr>
+        <tr><td>答题正确</td><td>当前角色欢呼 + 转圈 + 星星迸发特效</td><td>欢快提示音 +「答对啦！」</td><td>P0</td></tr>
+        <tr><td>答题首次答错</td><td>角色露出温和鼓励表情（不沮丧），同步播放计数辅助动画</td><td>温和提示音 +「再试一次，你可以的」</td><td>P0</td></tr>
+        <tr><td>连续答对 ≥3 题</td><td>角色放大 + 彩带特效</td><td>升级音效</td><td>P0</td></tr>
+        <tr><td>数学 / 小游戏结算页</td><td>角色带头鼓掌 / 敬礼 + 撒花</td><td>完整鼓励语 + 结算音效</td><td>P0</td></tr>
+        <tr><td>获得贴纸</td><td>贴纸飞入贴纸集动画 + 角色欢呼</td><td>收集音效</td><td>P0</td></tr>
+        <tr><td>小游戏成功</td><td>对应角色专属庆祝动作</td><td>对应角色专属音效</td><td>P0</td></tr>
+        <tr><td>时间锁触发</td><td>角色打哈欠 / 挥手道别</td><td>温和道别语「今天玩得真棒，休息一下吧」</td><td>P0</td></tr>
+        <tr><td>家长解锁成功</td><td>角色苏醒 + 鼓掌欢迎</td><td>欢迎音效</td><td>P1</td></tr>
+      </table>
+
+      <h3>动画与声音分类</h3>
+      <table>
+        <tr><th>类别</th><th>内容</th><th>级别</th></tr>
+        <tr><td>角色通用动作</td><td>跳跃、挥手、欢呼、转圈、鼓掌、敬礼、打哈欠、道别</td><td>P0</td></tr>
+        <tr><td>特效动画</td><td>星星迸发、撒花、彩带、贴纸飞入</td><td>P0</td></tr>
+        <tr><td>提示音效</td><td>正确 / 错误提示、翻牌、收集、结算短音效</td><td>P0</td></tr>
+        <tr><td>角色专属配音 / 台词</td><td>每个角色独立的招呼、鼓励、道别真人/合成语音</td><td>P1</td></tr>
+        <tr><td>背景音乐</td><td>柔和循环背景乐，可开关</td><td>P1</td></tr>
+      </table>
+
+      <h3>处理与控制规则</h3>
+      <ul>
+        <li><span class="label">默认与开关：</span>声音默认开启、音量适中；家长中心提供「音效 / 背景音乐」开关（见 FR-06）。</li>
+        <li><span class="label">节奏适配（5–6 岁）：</span>动画节奏平缓（单段约 0.5–1 秒），无闪烁、无高频变化、无强烈震动，避免过度刺激；反馈以正向鼓励为主，不出现负面/恐怖形象。</li>
+        <li><span class="label">浏览器自动播放限制：</span>背景音乐须在用户首次点击/交互后再播放；提示音效由用户手势触发，符合浏览器自动播放策略。</li>
+        <li><span class="label">异常与降级：</span>音频资源加载失败或处于静音环境时，仅保留动画，游戏流程不阻塞、不报错；无音轨设备时提示音静默跳过。</li>
+        <li><span class="label">资源与授权：</span>角色形象动画与配音受 IP 授权约束（见第 7 节 Q1 / Q2）；未获授权时以原创宠物形象与自配音替代。</li>
+      </ul>
+    </div>
+
+    <!-- 6 共享规则 -->
+    <h2 id="s6"><span class="num">6.</span>共享规则与异常</h2>
+    <h3>6.1 计分与奖励规则（唯一口径）</h3>
+    <table>
+      <tr><th>规则</th><th>定义</th></tr>
+      <tr><td>基础计分</td><td>数学救援每题答对 <code>+10</code> 分；小游戏按完成质量给固定档位分（不设负分）</td></tr>
+      <tr><td>连对奖励</td><td>连续答对 ≥3 题额外点亮一颗星（视觉鼓励，不影响成绩等级）</td></tr>
+      <tr><td>答错处理</td><td>数学题首次答错不扣分，进入计数辅助后可再试一次；再次答错记录错误并继续</td></tr>
+      <tr><td>成绩等级</td><td>依据正确率展示鼓励语：≥90%「太棒了」、≥70%「很棒」、≥50%「继续加油」、&lt;50%「再试一次」；不产生负面评价</td></tr>
+      <tr><td>贴纸奖励</td><td>每完整完成一局数学救援或小游戏发放 1 枚对应贴纸</td></tr>
+    </table>
+
+    <h3>6.2 权限矩阵</h3>
+    <table>
+      <tr><th>能力</th><th>儿童</th><th>家长（已验证）</th></tr>
+      <tr><td>进入角色大厅 / 数学救援 / 小游戏 / 我的贴纸</td><td>✔</td><td>✔</td></tr>
+      <tr><td>查看历史成绩与汇总</td><td>✘</td><td>✔</td></tr>
+      <tr><td>设置单日时长上限 / 解锁方式 / 音效</td><td>✘</td><td>✔</td></tr>
+      <tr><td>解除时间锁 / 临时延时</td><td>✘</td><td>✔</td></tr>
+      <tr><td>重置成绩</td><td>✘</td><td>✔</td></tr>
+    </table>
+
+    <h3>6.3 状态与生命周期</h3>
+    <table>
+      <tr><th>对象</th><th>状态</th><th>说明</th></tr>
+      <tr><td rowspan="2">时间锁</td><td>未触发</td><td>当日累计时长 &lt; 上限，正常游玩</td></tr>
+      <tr><td>已锁定</td><td>累计 ≥ 上限 → 锁定；家长解锁后可“延时”或“当日结束”；次日（本地日期 0 点）自动重置为未触发</td></tr>
+      <tr><td rowspan="3">练习回合</td><td>进行中</td><td>正在答题，计时累计</td></tr>
+      <tr><td>已完成</td><td>10 题答完，写成绩记录，发放贴纸</td></tr>
+      <tr><td>已中断</td><td>中途退出，不计成绩，但已用时累计到当日时长</td></tr>
+    </table>
+
+    <h3>6.4 通用异常与恢复</h3>
+    <table>
+      <tr><th>场景</th><th>行为</th></tr>
+      <tr><td>首次进入 / 本地无数据</td><td>以默认配置（30 分钟、算术解锁）与空成绩启动，正常进入大厅</td></tr>
+      <tr><td>本地存储不可写/读取失败</td><td>游戏可玩，但成绩与时长不持久化；大厅顶部提示“当前数据不会被保存”</td></tr>
+      <tr><td>关闭/刷新页面</td><td>进行中的回合视为中断；当日时长按已记录值保留（持久化）</td></tr>
+      <tr><td>家长验证连续答错 3 次</td><td>入口/解锁冷却 60 秒，冷却期不响应，倒计时结束后可重试</td></tr>
+      <tr><td>达到上限时的进行中回合</td><td>立即锁定并暂存当前进度；解锁并「再玩 15 分钟」后可从原进度继续（P1：本版可简化为重新开始）</td></tr>
+    </table>
+
+    <!-- 7 开放问题 -->
+    <h2 id="s7"><span class="num">7.</span>开放问题</h2>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>影响</th><th>默认处理</th></tr>
+      <tr><td>Q1</td><td>“汪汪队”形象/名称授权是否到位？</td><td>角色形象与名称能否正式使用</td><td>按“家庭自用”编写，发布前需确认授权；可替换为原创宠物形象</td></tr>
+      <tr><td>Q2</td><td>角色配音（真人/合成语音）的授权与音源来源？</td><td>体验与资源体积</td><td>基础提示音效与角色专属音效为 P0，完整配音与背景音乐 P1 后补（见 FR-08）</td></tr>
+      <tr><td>Q3</td><td>“数据仅保存在本机”是否满足？是否需要家长在多设备间查看成绩？</td><td>是否需要后端/账号</td><td>本版纯本地，多设备同步列为后续规划</td></tr>
+      <tr><td>Q4</td><td>到期时进行中回合是否支持续玩原进度？</td><td>恢复逻辑复杂度</td><td>本版简化为重新开始，续玩列为 P1</td></tr>
+      <tr><td>Q5</td><td>是否需要按星期设置差异化时长（如周末更久）？</td><td>时长配置扩展</td><td>本版仅单日固定上限，按周规则列为后续</td></tr>
+    </table>
+
+    <div class="foot">
+      本文档为产品需求规格，不包含技术实现方案与排期。所有标注 <code>[TBD]</code> / 开放问题项需在评审时确认。未标注具体数值的业务规则均已在正文给出唯一口径。
+    </div>
+  </main>
+</div>
+
+<script>
+  // FR-02 答题交互示例
+  (function () {
+    var opts = document.querySelectorAll('#demoOpts .opt');
+    var fb = document.getElementById('demoFb');
+    var stars = document.getElementById('demoStars');
+    var correct = 1; // 7 为正确答案
+    opts.forEach(function (btn, i) {
+      btn.addEventListener('click', function () {
+        if (btn.classList.contains('ok')) return;
+        if (i === correct) {
+          opts.forEach(function (b) { b.classList.remove('no'); });
+          btn.classList.add('ok');
+          fb.textContent = '答对啦！毛毛为你欢呼 🎉';
+        } else {
+          btn.classList.add('no');
+          opts[correct].classList.add('ok');
+          fb.textContent = '差一点～ 看计数辅助：●●● + ●●●● ＝ ●●●●●●● ＝ 7，再选一次吧';
+        }
+      });
+    });
+  })();
+
+  // FR-07 家长解锁示例
+  (function () {
+    var input = document.getElementById('lockInput');
+    var btn = document.getElementById('lockBtn');
+    var fb = document.getElementById('lockFb');
+    var fail = 0;
+    btn.addEventListener('click', function () {
+      var v = (input.value || '').trim();
+      if (v === '312') {
+        fb.innerHTML = '<span style="color:#2e9e5b;">解锁成功！请选择：<br><button class="primary" style="margin:6px 4px;">再玩 15 分钟</button><button style="background:#fff;border:1px solid var(--line);padding:10px 20px;border-radius:10px;margin:6px 4px;cursor:pointer;">今天先到这里</button></span>';
+      } else {
+        fail++;
+        if (fail >= 3) { fb.textContent = '连续答错，请 60 秒后再试'; btn.disabled = true; }
+        else { fb.textContent = '答案不对哦，再想想（' + fail + '/3）'; }
+      }
+    });
+  })();
+</script>
+</body>
+</html>
