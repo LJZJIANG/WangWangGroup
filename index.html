@@ -128,7 +128,7 @@
   .pz-tag { font-size:11px; padding:1px 8px; border-radius:999px; background:#eef2ff; color:#4b5563; }
 
   /* 拼图 */
-  .slider { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:270px; margin:16px auto; }
+  .slider { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:270px; margin:16px auto; touch-action:none; }
   .slider .tile { aspect-ratio:1; border-radius:12px; background:var(--blue); color:#fff; font-size:28px;
     font-weight:800; display:flex; align-items:center; justify-content:center; transition:background .2s; cursor:pointer; }
   .slider .tile.blank { background:#e5e7eb; cursor:default; }
@@ -436,7 +436,7 @@ const CHAR_MAP = Object.fromEntries(CHARACTERS.map(c=>[c.id,c]));
 const DIFF_BY_LEVEL = {1:'marshall', 2:'skye', 3:'ryder'};
 
 const PUZZLES = [
-  {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点击数字块滑动，把 1-8 按顺序排好'},
+  {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点一点或朝空格方向滑动数字块，把 1-8 按顺序排好'},
   {id:'memory', name:'记忆配对', char:'rocky',   level:'P0', icon:'🃏', hint:'翻牌找相同的图案，全部配成对'},
   {id:'spot',   name:'找不同',   char:'everest', level:'P0', icon:'🔍', hint:'两幅图有 3 处不同，点右边不同的格子'},
   {id:'maze',   name:'迷宫',     char:'zuma',    level:'P0', icon:'🌀', hint:'点一点，帮路马走到骨头那里'},
@@ -885,15 +885,45 @@ function renderSlider(){
     const d=document.createElement('div');
     d.className='tile'+(tile===0?' blank':'');
     if(tile!==0) d.textContent=tile;
-    d.onclick=()=>{
-      if(sliderMoves(slider.blank).includes(i)){
-        [slider.board[i],slider.board[slider.blank]]=[slider.board[slider.blank],slider.board[i]];
-        slider.blank=i; sfx('flip'); renderSlider();
-        if(slider.board.join(',')===[1,2,3,4,5,6,7,8,0].join(',')) puzzleWin(PUZZLES.find(p=>p.id==='puzzle'));
-      }
-    };
     grid.appendChild(d);
   });
+  bindSliderGestures(grid);
+}
+/* 移动某块：只有与空格相邻时才能移动 */
+function sliderTryMove(i){
+  if(i<0 || !sliderMoves(slider.blank).includes(i)) return;
+  [slider.board[i],slider.board[slider.blank]]=[slider.board[slider.blank],slider.board[i]];
+  slider.blank=i; sfx('flip'); renderSlider();
+  if(slider.board.join(',')==='1,2,3,4,5,6,7,8,0') puzzleWin(PUZZLES.find(p=>p.id==='puzzle'));
+}
+/* 手指滑动：按滑动方向把空格旁的方块滑进空格 */
+function sliderSwipe(dx,dy){
+  const b=slider.blank, r=Math.floor(b/3), c=b%3;
+  let target=-1;
+  if(Math.abs(dx)>=Math.abs(dy)){
+    if(dx<0 && c<2) target=b+1;       // 向左滑
+    else if(dx>0 && c>0) target=b-1;  // 向右滑
+  } else {
+    if(dy<0 && r<2) target=b+3;       // 向上滑
+    else if(dy>0 && r>0) target=b-3;  // 向下滑
+  }
+  if(target>=0) sliderTryMove(target);
+}
+/* 用 pointer 事件同时支持点击与滑动（手机 / 桌面通用） */
+function bindSliderGestures(grid){
+  let start=null;
+  grid.addEventListener('pointerdown', e=>{
+    start={x:e.clientX, y:e.clientY, idx:Array.from(grid.children).indexOf(e.target)};
+    if(grid.setPointerCapture) grid.setPointerCapture(e.pointerId);
+  });
+  grid.addEventListener('pointerup', e=>{
+    if(!start) return;
+    const dx=e.clientX-start.x, dy=e.clientY-start.y, idx=start.idx;
+    start=null;
+    if(Math.abs(dx)<24 && Math.abs(dy)<24) sliderTryMove(idx);  // 轻点
+    else sliderSwipe(dx,dy);                                    // 滑动
+  });
+  grid.addEventListener('pointercancel', ()=>{ start=null; });
 }
 
 /* —— 记忆配对 —— */
