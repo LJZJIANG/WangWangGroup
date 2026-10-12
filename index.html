@@ -25,7 +25,7 @@
     overscroll-behavior-y:none;
   }
   button { font-family:inherit; cursor:pointer; -webkit-user-select:none; user-select:none; }
-  button, .char-card, .level-card, .pz-card, .qopt, .tile, .mem-card, .spot-cell, .maze-cell, .sort-bin, .order-card, .icon-btn, .pc-tab, .toggle {
+  button, .char-card, .level-card, .pz-card, .qopt, .tile, .mem-card, .spot-cell, .maze-cell, .order-card, .icon-btn, .pc-tab, .toggle {
     touch-action:manipulation;
   }
   .app { max-width:960px; margin:0 auto; padding:0 14px 40px; }
@@ -163,14 +163,26 @@
   .maze-cell.pet { background:#fff1d6; border-color:var(--yellow); }
   .maze-cell.goal { background:#d1fae5; border-color:var(--green); }
 
-  /* 形状分类 */
-  .sort-big { font-size:clamp(64px,24vw,96px); line-height:1; }
-  .sort-bins { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  .sort-bin { display:flex; flex-direction:column; align-items:center; gap:4px; background:#fff; border:3px solid var(--line);
-    border-radius:16px; padding:12px 16px; cursor:pointer; }
-  .sort-bin .sort-glyph { font-size:40px; line-height:1; }
-  @media (hover:hover){ .sort-bin:hover { border-color:var(--blue); } }
-  .sort-bin.wrong { animation:shake .3s; border-color:var(--red); }
+  /* 开心画画板 */
+  .draw-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .draw-name { font-weight:800; font-size:16px; }
+  .draw-chars { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .draw-char { background:#fff; border:3px solid var(--line); border-radius:16px; padding:10px 6px;
+    display:flex; flex-direction:column; align-items:center; gap:6px; }
+  @media (hover:hover){ .draw-char:hover { border-color:var(--blue); } }
+  .draw-tools { display:flex; flex-direction:column; gap:10px; margin:6px 0 10px; }
+  .draw-palette { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .draw-swatch { width:38px; height:38px; border-radius:50%; border:3px solid var(--line); padding:0; }
+  .draw-swatch.on { border-color:var(--ink); transform:scale(1.12); }
+  .draw-sizes { display:flex; gap:10px; justify-content:center; align-items:center; }
+  .draw-size { width:46px; height:46px; border-radius:14px; border:3px solid var(--line); background:#fff;
+    display:flex; align-items:center; justify-content:center; }
+  .draw-size.on { border-color:var(--blue); }
+  .draw-size i { display:block; border-radius:50%; background:var(--ink); }
+  .draw-stage { position:relative; width:100%; height:clamp(220px,42vh,340px); border:3px solid var(--line);
+    border-radius:16px; background:#fff; overflow:hidden; }
+  .draw-stage canvas { position:absolute; inset:0; width:100%; height:100%; touch-action:none; }
+  .draw-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
 
   /* 数量排序 */
   .order-cards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
@@ -413,7 +425,7 @@ const CHARACTERS = [
   {id:'ryder',    name:'莱德', role:'队长 · 引导',   img:'images/莱德.jpg', color:'#e63b2e'},
   {id:'marshall', name:'毛毛', role:'消防 · 简单题', img:'images/毛毛.jpg', color:'#d9232e'},
   {id:'skye',     name:'天天', role:'飞行 · 中等题', img:'images/天天.jpg', color:'#ec4899'},
-  {id:'chase',    name:'阿奇', role:'警察 · 分类',   img:'images/阿奇.jpg', color:'#1f6feb'},
+  {id:'chase',    name:'阿奇', role:'警察 · 画画',   img:'images/阿奇.jpg', color:'#1f6feb'},
   {id:'rubble',   name:'小砾', role:'工程 · 拼图',   img:'images/小砾.jpg', color:'#f59e0b'},
   {id:'rocky',    name:'灰灰', role:'环保 · 记忆',   img:'images/灰灰.jpg', color:'#22c55e'},
   {id:'zuma',     name:'路马', role:'水上 · 迷宫',   img:'images/路马.jpg', color:'#f97316'},
@@ -428,7 +440,7 @@ const PUZZLES = [
   {id:'memory', name:'记忆配对', char:'rocky',   level:'P0', icon:'🃏', hint:'翻牌找相同的图案，全部配成对'},
   {id:'spot',   name:'找不同',   char:'everest', level:'P0', icon:'🔍', hint:'两幅图有 3 处不同，点右边不同的格子'},
   {id:'maze',   name:'迷宫',     char:'zuma',    level:'P0', icon:'🌀', hint:'点一点，帮路马走到骨头那里'},
-  {id:'sort',   name:'形状分类', char:'chase',   level:'P0', icon:'🧺', hint:'把形状放进对应的筐里'},
+  {id:'draw',   name:'开心画画板', char:'chase',   level:'P0', icon:'🎨', hint:'选一个小动物，在它的简笔画上画出线条～'},
   {id:'order',  name:'数量排序', char:'tracker', level:'P0', icon:'🔢', hint:'按数量从少到多，依次点一点'},
 ];
 
@@ -818,7 +830,7 @@ function startPuzzle(id){
   else if(id==='memory') startMemory();
   else if(id==='spot') startSpot();
   else if(id==='maze') startMaze();
-  else if(id==='sort') startSort();
+  else if(id==='draw') startDraw();
   else if(id==='order') startOrder();
 }
 function puzzleWin(p){
@@ -1025,40 +1037,373 @@ function mazeMove(steps){
   setTimeout(()=>mazeMove(steps),140);
 }
 
-/* —— 形状分类 —— */
-const SORT_SHAPES=[
-  {name:'圆形',   glyph:'●', color:'#e63b2e'},
-  {name:'三角形', glyph:'▲', color:'#f59e0b'},
-  {name:'正方形', glyph:'■', color:'#1f6feb'},
+/* —— 开心画画板 —— */
+const DRAW_COLORS=['#e63b2e','#f59e0b','#facc15','#22c55e','#1f6feb','#a855f7','#ec4899','#1f2937'];
+const DRAW_SIZES=[4,9,18];
+/* 12 个默认动物简笔画 */
+const SKETCH_ANIMALS=[
+  {id:'cat',      name:'小猫',   icon:'🐱'},
+  {id:'dog',      name:'小狗',   icon:'🐶'},
+  {id:'elephant', name:'大象',   icon:'🐘'},
+  {id:'giraffe',  name:'长颈鹿', icon:'🦒'},
+  {id:'whale',    name:'鲸鱼',   icon:'🐳'},
+  {id:'rabbit',   name:'兔子',   icon:'🐰'},
+  {id:'lion',     name:'狮子',   icon:'🦁'},
+  {id:'pig',      name:'小猪',   icon:'🐷'},
+  {id:'panda',    name:'熊猫',   icon:'🐼'},
+  {id:'frog',     name:'青蛙',   icon:'🐸'},
+  {id:'penguin',  name:'企鹅',   icon:'🐧'},
+  {id:'fish',     name:'小鱼',   icon:'🐟'},
 ];
-let sortGame={total:9, done:0, current:null};
-function startSort(){ sortGame={total:9, done:0, current:null}; renderSort(); }
-function renderSort(){
-  const s=SORT_SHAPES[randInt(0,SORT_SHAPES.length-1)];
-  sortGame.current=s;
+const SKETCH_MAP=Object.fromEntries(SKETCH_ANIMALS.map(a=>[a.id,a]));
+let draw={animal:'', color:'#e63b2e', size:9, eraser:false, drawing:false, last:null, ctx:null, W:0, H:0};
+
+function startDraw(){
+  draw={animal:'', color:'#e63b2e', size:9, eraser:false, drawing:false, last:null, ctx:null, W:0, H:0};
+  renderDrawChooser();
+}
+/* 第一步：选动物 */
+function renderDrawChooser(){
   const b=$('pzBody');
-  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;">完成 '+sortGame.done+' / '+sortGame.total+' · 把下面形状放进对应筐里</div>'+
-    '<div style="text-align:center;margin:16px 0;"><span class="sort-big" style="color:'+s.color+';">'+s.glyph+'</span></div>'+
-    '<div class="sort-bins"></div><div id="sortFb" style="text-align:center;color:var(--muted);min-height:22px;margin-top:8px;"></div>';
-  const bins=b.querySelector('.sort-bins');
-  shuffle(SORT_SHAPES).forEach(o=>{
-    const d=document.createElement('button'); d.className='sort-bin'; d.style.color=o.color;
-    d.innerHTML='<span class="sort-glyph">'+o.glyph+'</span><span style="font-size:13px;font-weight:700;">'+o.name+'</span>';
-    d.onclick=()=>onSortClick(d,o);
-    bins.appendChild(d);
+  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;margin-bottom:12px;">选一个小动物，来画它的简笔画吧～</div>'+
+    '<div class="draw-chars" id="drawChars"></div>';
+  const g=b.querySelector('#drawChars');
+  SKETCH_ANIMALS.forEach(a=>{
+    const d=document.createElement('button'); d.className='draw-char';
+    d.innerHTML='<span style="font-size:34px;line-height:1;">'+a.icon+'</span>'+
+      '<span style="font-weight:700;font-size:14px;">'+a.name+'</span>';
+    d.onclick=()=>{ sfx('click'); startDrawBoard(a.id); };
+    g.appendChild(d);
   });
 }
-function onSortClick(btn,o){
-  if(o.glyph===sortGame.current.glyph){
-    sfx('correct'); voice('chase','correct','分对啦！');
-    sortGame.done++;
-    if(sortGame.done>=sortGame.total){ puzzleWin(PUZZLES.find(p=>p.id==='sort')); }
-    else renderSort();
-  } else {
-    sfxWrong(); btn.classList.add('wrong');
-    setTimeout(()=>btn.classList.remove('wrong'),300);
-  }
+/* 第二步：画画板（在线稿上画线条） */
+function startDrawBoard(animalId){
+  draw={animal:animalId, color:'#e63b2e', size:9, eraser:false, drawing:false, last:null, ctx:null, W:0, H:0};
+  renderDrawBoard();
 }
+function renderDrawBoard(){
+  const an=SKETCH_MAP[draw.animal]||SKETCH_ANIMALS[0];
+  const b=$('pzBody');
+  b.innerHTML=
+    '<div class="draw-head">'+
+      '<button class="btn ghost" id="drawChange">← 换一个</button>'+
+      '<span class="draw-name">🎨 '+an.name+'的简笔画</span>'+
+    '</div>'+
+    '<div class="draw-tools">'+
+      '<div class="draw-palette" id="drawPalette"></div>'+
+      '<div class="draw-sizes" id="drawSizes">'+
+        '<button class="draw-size" id="drawEraser" title="橡皮擦">🧽</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="draw-stage">'+
+      '<canvas id="drawSketchCv"></canvas>'+
+      '<canvas id="drawCanvas"></canvas>'+
+    '</div>'+
+    '<div class="draw-actions">'+
+      '<button class="btn ghost" id="drawClear">🧹 清空线条</button>'+
+      '<button class="btn primary" id="drawDone">✅ 完成啦</button>'+
+    '</div>';
+  const pal=b.querySelector('#drawPalette');
+  DRAW_COLORS.forEach(c=>{
+    const s=document.createElement('button'); s.className='draw-swatch'; s.dataset.color=c; s.style.background=c;
+    s.onclick=()=>{ draw.color=c; draw.eraser=false; syncDrawUI(); sfx('click'); };
+    pal.appendChild(s);
+  });
+  const sizes=b.querySelector('#drawSizes');
+  DRAW_SIZES.forEach(sz=>{
+    const s=document.createElement('button'); s.className='draw-size'; s.dataset.size=sz;
+    s.innerHTML='<i style="width:'+(sz+4)+'px;height:'+(sz+4)+'px;"></i>';
+    s.onclick=()=>{ draw.size=sz; syncDrawUI(); sfx('click'); };
+    sizes.appendChild(s);
+  });
+  b.querySelector('#drawEraser').onclick=()=>{ draw.eraser=!draw.eraser; syncDrawUI(); sfx('click'); };
+  b.querySelector('#drawChange').onclick=()=>{ sfx('click'); renderDrawChooser(); };
+  b.querySelector('#drawClear').onclick=()=>{
+    const fg=$('drawCanvas'); if(draw.ctx && fg) draw.ctx.clearRect(0,0,draw.W,draw.H); sfx('click');
+  };
+  b.querySelector('#drawDone').onclick=()=>{ puzzleWin(PUZZLES.find(p=>p.id==='draw')); };
+  bindDrawCanvas();
+  syncDrawUI();
+}
+function syncDrawUI(){
+  document.querySelectorAll('#drawPalette .draw-swatch').forEach(el=>{
+    el.classList.toggle('on', !draw.eraser && el.dataset.color===draw.color);
+  });
+  document.querySelectorAll('#drawSizes .draw-size').forEach(el=>{
+    el.classList.toggle('on', +el.dataset.size===draw.size);
+  });
+  const er=$('drawEraser'); if(er) er.classList.toggle('on', draw.eraser);
+}
+/* 双层 canvas：底层画线稿，顶层记录用户笔迹（橡皮擦只擦顶层，不破坏简笔画） */
+function bindDrawCanvas(){
+  const fg=$('drawCanvas'), bg=$('drawSketchCv'); if(!fg||!bg) return;
+  const rect=fg.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  const w=Math.max(1,Math.round(rect.width)), h=Math.max(1,Math.round(rect.height));
+  fg.width=Math.round(w*dpr); fg.height=Math.round(h*dpr);
+  bg.width=Math.round(w*dpr); bg.height=Math.round(h*dpr);
+  const fctx=fg.getContext('2d'); fctx.setTransform(dpr,0,0,dpr,0,0); fctx.lineCap='round'; fctx.lineJoin='round';
+  const bctx=bg.getContext('2d'); bctx.setTransform(dpr,0,0,dpr,0,0); bctx.lineCap='round'; bctx.lineJoin='round';
+  draw.ctx=fctx; draw.W=w; draw.H=h;
+  drawSketch(bctx, w, h);
+  const pt=e=>{ const r=fg.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  const onDown=e=>{
+    e.preventDefault(); draw.drawing=true;
+    const p=pt(e); draw.last=p;
+    fctx.globalCompositeOperation = draw.eraser ? 'destination-out' : 'source-over';
+    fctx.fillStyle=draw.color;
+    fctx.beginPath(); fctx.arc(p.x,p.y,draw.size/2,0,Math.PI*2); fctx.fill();
+    fctx.globalCompositeOperation='source-over';
+    if(fg.setPointerCapture) fg.setPointerCapture(e.pointerId);
+  };
+  const onMove=e=>{
+    if(!draw.drawing) return;
+    e.preventDefault();
+    const p=pt(e);
+    fctx.globalCompositeOperation = draw.eraser ? 'destination-out' : 'source-over';
+    fctx.strokeStyle=draw.color; fctx.lineWidth=draw.size;
+    fctx.beginPath(); fctx.moveTo(draw.last.x,draw.last.y); fctx.lineTo(p.x,p.y); fctx.stroke();
+    fctx.globalCompositeOperation='source-over';
+    draw.last=p;
+  };
+  const onUp=()=>{ draw.drawing=false; };
+  fg.addEventListener('pointerdown',onDown);
+  fg.addEventListener('pointermove',onMove);
+  fg.addEventListener('pointerup',onUp);
+  fg.addEventListener('pointercancel',onUp);
+}
+/* 生成动物简笔画：按所选动物绘制浅灰线稿 */
+function drawSketch(ctx, W, H){
+  const a=SKETCH_MAP[draw.animal]||SKETCH_ANIMALS[0];
+  const R=Math.min(W,H)*0.25;
+  const cx=W/2, cy=H*0.55;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.strokeStyle='#c7ced8'; ctx.fillStyle='#c7ced8';
+  ctx.lineWidth=Math.max(2,R*0.075);
+  (ANIMAL_DRAW[a.id]||ANIMAL_DRAW.cat)(ctx, R);
+  ctx.restore();
+}
+/* 12 个动物线稿绘制器（坐标系已平移到画布中心，R 为基准半径） */
+const ANIMAL_DRAW={
+  /* 小猫：三角耳 + 椭圆脸 + 三角鼻 + 双弧嘴 + 胡须 */
+  cat(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*R*0.35,-R*0.75);
+      ctx.lineTo(s*R*0.72,-R*1.18);
+      ctx.lineTo(s*R*0.86,-R*0.55);
+      ctx.closePath(); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.95,R*0.85,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.33,-R*0.12,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.33,-R*0.12,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,R*0.18); ctx.lineTo(-R*0.12,R*0.32); ctx.lineTo(R*0.12,R*0.32); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.17,R*0.42,R*0.16,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc( R*0.17,R*0.42,R*0.16,0,Math.PI); ctx.stroke();
+    [-1,1].forEach(s=>{
+      [-0.08,0.06,0.2].forEach(dy=>{
+        ctx.beginPath();
+        ctx.moveTo(s*R*0.3, R*0.28+dy*R);
+        ctx.lineTo(s*R*0.85, R*0.18+dy*R);
+        ctx.stroke();
+      });
+    });
+  },
+  /* 小狗：垂耳 + 椭圆脸 + 口鼻 + 双弧嘴 */
+  dog(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.92,-R*0.05); ctx.rotate(s*0.15);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.28,R*0.62,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.92,R*0.9,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0,R*0.35,R*0.4,R*0.3,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0,R*0.28,R*0.14,R*0.1,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.34,-R*0.15,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.34,-R*0.15,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.18,R*0.48,R*0.15,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc( R*0.18,R*0.48,R*0.15,0,Math.PI); ctx.stroke();
+  },
+  /* 大象：大扇耳 + 圆头 + 长鼻 + 象牙 */
+  elephant(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.85,-R*0.15);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.55,R*0.65,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.beginPath(); ctx.arc(0,0,R*0.8,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.35,-R*0.12,R*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.35,-R*0.12,R*0.09,0,Math.PI*2); ctx.fill();
+    [-1,1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*R*0.16,R*0.55);
+      ctx.quadraticCurveTo(s*R*0.18,R*1.1,s*R*0.1,R*1.25);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s*R*0.32,R*0.55);
+      ctx.lineTo(s*R*0.48,R*0.9);
+      ctx.stroke();
+    });
+  },
+  /* 长颈鹿：双角 + 横耳 + 长脖子 + 斑点 */
+  giraffe(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.beginPath(); ctx.moveTo(s*R*0.28,-R*0.78); ctx.lineTo(s*R*0.34,-R*1.18); ctx.stroke();
+      ctx.beginPath(); ctx.arc(s*R*0.34,-R*1.2,R*0.1,0,Math.PI*2); ctx.fill();
+      ctx.save(); ctx.translate(s*R*0.8,-R*0.62); ctx.rotate(s*0.6);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.2,R*0.12,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.beginPath(); ctx.ellipse(0,-R*0.35,R*0.5,R*0.6,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0,R*0.05,R*0.3,R*0.22,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.12,R*0.12,R*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.12,R*0.12,R*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.2,-R*0.45,R*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.2,-R*0.45,R*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-R*0.28,R*0.1); ctx.lineTo(-R*0.28,R*1.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( R*0.28,R*0.1); ctx.lineTo( R*0.28,R*1.2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0,R*0.45,R*0.18,R*0.26,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,R*0.9,R*0.14,R*0.2,0,0,Math.PI*2); ctx.fill();
+  },
+  /* 鲸鱼：横卧身体 + 尾鳍 + 眼嘴 + 喷水 */
+  whale(ctx,R){
+    ctx.beginPath();
+    ctx.moveTo(-R*0.95,0);
+    ctx.quadraticCurveTo(-R*0.5,-R*0.6,R*0.1,-R*0.4);
+    ctx.quadraticCurveTo(R*0.55,-R*0.3,R*0.6,0);
+    ctx.quadraticCurveTo(R*0.55,R*0.3,R*0.1,R*0.4);
+    ctx.quadraticCurveTo(-R*0.5,R*0.6,-R*0.95,0);
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R*0.55,-R*0.3); ctx.quadraticCurveTo(R*0.85,-R*0.55,R*1.15,-R*0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R*0.55,-R*0.3); ctx.quadraticCurveTo(R*0.85,R*0.05,R*1.15,R*0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.55,-R*0.1,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.85,-R*0.05,R*0.18,0.1*Math.PI,0.9*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-R*0.25,-R*0.55); ctx.quadraticCurveTo(-R*0.15,-R*1.1,-R*0.02,-R*0.95); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.18,-R*1.15,R*0.06,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.06,-R*1.25,R*0.05,0,Math.PI*2); ctx.fill();
+  },
+  /* 兔子：长竖耳 + 圆脸 + 三瓣嘴 + 胡须 */
+  rabbit(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.3,-R*1.0); ctx.rotate(s*0.12);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.16,R*0.5,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.75,R*0.72,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.25,-R*0.15,R*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.25,-R*0.15,R*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,R*0.08); ctx.lineTo(-R*0.1,R*0.2); ctx.lineTo(R*0.1,R*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,R*0.2); ctx.lineTo(0,R*0.32); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.14,R*0.4,R*0.14,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc( R*0.14,R*0.4,R*0.14,0,Math.PI); ctx.stroke();
+    [-1,1].forEach(s=>{
+      [-0.05,0.12].forEach(dy=>{
+        ctx.beginPath();
+        ctx.moveTo(s*R*0.4, R*0.2+dy*R);
+        ctx.lineTo(s*R*0.85, R*0.12+dy*R);
+        ctx.stroke();
+      });
+    });
+  },
+  /* 狮子：锯齿鬃毛 + 圆脸 + 三瓣嘴 */
+  lion(ctx,R){
+    ctx.beginPath();
+    for(let i=0;i<=14;i++){
+      const ang=i/14*Math.PI*2;
+      const r=i%2===0? R*1.22 : R*1.0;
+      if(i===0) ctx.moveTo(Math.cos(ang)*r,Math.sin(ang)*r);
+      else ctx.lineTo(Math.cos(ang)*r,Math.sin(ang)*r);
+    }
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,R*0.85,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.3,-R*0.15,R*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.3,-R*0.15,R*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,R*0.15); ctx.lineTo(-R*0.12,R*0.28); ctx.lineTo(R*0.12,R*0.28); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,R*0.28); ctx.lineTo(0,R*0.4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.15,R*0.48,R*0.15,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc( R*0.15,R*0.48,R*0.15,0,Math.PI); ctx.stroke();
+  },
+  /* 小猪：三角耳 + 圆脸 + 椭圆猪鼻 + 微笑 */
+  pig(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*R*0.45,-R*0.62);
+      ctx.lineTo(s*R*0.85,-R*1.0);
+      ctx.lineTo(s*R*0.9,-R*0.4);
+      ctx.closePath(); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.95,R*0.88,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0,R*0.28,R*0.32,R*0.24,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-R*0.12,R*0.28,R*0.06,R*0.09,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( R*0.12,R*0.28,R*0.06,R*0.09,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.35,-R*0.15,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.35,-R*0.15,R*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,R*0.55,R*0.3,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
+  },
+  /* 熊猫：黑圆耳 + 黑眼圈 + 白眼球 + 圆鼻 */
+  panda(ctx,R){
+    ctx.beginPath(); ctx.arc(-R*0.62,-R*0.68,R*0.26,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.62,-R*0.68,R*0.26,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.92,R*0.88,0,0,Math.PI*2); ctx.stroke();
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.34,-R*0.14); ctx.rotate(s*0.3);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.2,R*0.26,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath(); ctx.arc(s*R*0.34,-R*0.14,R*0.09,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#c7ced8';
+    });
+    ctx.beginPath(); ctx.ellipse(0,R*0.15,R*0.1,R*0.07,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.12,R*0.32,R*0.12,0,Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc( R*0.12,R*0.32,R*0.12,0,Math.PI); ctx.stroke();
+  },
+  /* 青蛙：头顶凸眼 + 大笑嘴 + 腿 */
+  frog(ctx,R){
+    [-1,1].forEach(s=>{
+      ctx.beginPath(); ctx.arc(s*R*0.4,-R*0.62,R*0.26,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(s*R*0.4,-R*0.62,R*0.1,0,Math.PI*2); ctx.fill();
+    });
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.95,R*0.85,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,-R*0.1,R*0.7,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.2,R*0.15,R*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.2,R*0.15,R*0.05,0,Math.PI*2); ctx.fill();
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.75,R*0.55); ctx.rotate(s*0.5);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.22,R*0.14,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+  },
+  /* 企鹅：竖椭圆身 + 翅膀 + 肚皮 + 三角喙 + 脚 */
+  penguin(ctx,R){
+    ctx.beginPath(); ctx.ellipse(0,0,R*0.7,R*1.0,0,0,Math.PI*2); ctx.stroke();
+    [-1,1].forEach(s=>{
+      ctx.save(); ctx.translate(s*R*0.66,R*0.05); ctx.rotate(s*0.25);
+      ctx.beginPath(); ctx.ellipse(0,0,R*0.16,R*0.5,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.beginPath(); ctx.ellipse(0,R*0.2,R*0.42,R*0.58,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.24,-R*0.25,R*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( R*0.24,-R*0.25,R*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-R*0.13,-R*0.2); ctx.lineTo(R*0.13,-R*0.2); ctx.lineTo(0,-R*0.02); ctx.closePath(); ctx.fill();
+    [-1,1].forEach(s=>{
+      ctx.beginPath(); ctx.ellipse(s*R*0.28,R*1.02,R*0.24,R*0.1,0,0,Math.PI*2); ctx.stroke();
+    });
+  },
+  /* 小鱼：椭圆身 + 燕尾 + 鳍 + 鳞纹 */
+  fish(ctx,R){
+    ctx.beginPath(); ctx.ellipse(-R*0.1,0,R*0.85,R*0.6,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R*0.7,0); ctx.lineTo(R*1.15,-R*0.45); ctx.lineTo(R*1.05,0); ctx.lineTo(R*1.15,R*0.45); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-R*0.55,-R*0.12,R*0.08,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-R*0.9,-R*0.05,R*0.12,0.6*Math.PI,1.4*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-R*0.2,-R*0.55); ctx.quadraticCurveTo(0,-R*0.95,R*0.2,-R*0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-R*0.15,R*0.58); ctx.quadraticCurveTo(0,R*0.9,R*0.15,R*0.6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(R*0.05,0,R*0.22,0.2*Math.PI,0.8*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(R*0.28,0,R*0.18,0.25*Math.PI,0.75*Math.PI); ctx.stroke();
+  },
+};
 
 /* —— 数量排序 —— */
 let orderGame={counts:[], sorted:[], picked:0};
@@ -1206,10 +1551,8 @@ setInterval(function(){
     state.time.date=todayKey(); state.time.seconds=0; state.time.extraMinutes=0; state.time.stopToday=false; saveState();
     lockShown=false;
   }
-  if(gameActive){
-    state.time.seconds++;
-    saveState();
-  }
+  state.time.seconds++;
+  saveState();
   updateTimer();
   if(isLocked() && !lockShown){ triggerLock(); }
 }, 1000);
