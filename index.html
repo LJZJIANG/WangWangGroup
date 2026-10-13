@@ -607,12 +607,26 @@ function speakHint(id, text){
 /* 移动端自动播放策略：首次用户手势内解锁音频与语音引擎 */
 let audioUnlocked=false;
 let ttsUnlocked=false;
+let primeAudio=null;
 function unlockAudio(){
   if(audioUnlocked) return;
   audioUnlocked=true;
   try{
     ensureCtx();
     if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+  /* 手势内静音播放一个真实音频文件：解锁 HTMLAudio 播放在移动端（iOS/微信）的限制 */
+  try{
+    if(!primeAudio){
+      primeAudio=new Audio();
+      primeAudio.muted=true;
+      primeAudio.setAttribute('playsinline','');
+      primeAudio.style.display='none';
+      document.body.appendChild(primeAudio);
+    }
+    primeAudio.src=TREASURE_SEG_BASE+'num1.mp3';
+    const pp=primeAudio.play();
+    if(pp && pp.catch) pp.catch(()=>{});
   }catch(e){}
   try{
     /* 触发语音列表加载，便于 speak() 选中中文语音 */
@@ -624,6 +638,8 @@ function unlockAudio(){
 ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
   document.addEventListener(ev, unlockAudio, {passive:true, once:false});
 });
+/* 老版本微信需等待 JSBridge 就绪后才能播放音频，就绪后重新执行一次解锁 */
+document.addEventListener('WeixinJSBridgeReady',()=>{ audioUnlocked=false; unlockAudio(); },false);
 
 /* ============ 时间锁 ============ */
 function limitSeconds(){ return (state.settings.weekdays[getTodayWeekday()]||30)*60 + state.time.extraMinutes*60; }
@@ -1748,9 +1764,22 @@ function newTreasureQuestion(){
   renderTreasure();
   speakTreasureHint();
 }
-/* 预录题目片段顺序播放：复用同一 Audio 元素，首次在用户手势内播放即完成移动端音频解锁 */
+/* 预录题目片段顺序播放：复用同一 Audio 元素并挂载到 DOM（兼容部分安卓 WebView），
+   片段改用 MP3 —— 微信/QQ 内置浏览器既不支持 TTS，对 WAV 支持也不可靠 */
 const TREASURE_SEG_BASE='audio/treasure/';
 let segAudio=null, segToken=0;
+function treasureAudio(){
+  if(!segAudio){
+    try{
+      segAudio=new Audio();
+      segAudio.preload='auto';
+      segAudio.setAttribute('playsinline','');
+      segAudio.style.display='none';
+      document.body.appendChild(segAudio);
+    }catch(e){ segAudio=new Audio(); }
+  }
+  return segAudio;
+}
 function playTreasureSegs(files, fallbackText){
   if(!state.settings.sound) return;
   segToken++; const token=segToken;
@@ -1758,12 +1787,12 @@ function playTreasureSegs(files, fallbackText){
   const next=()=>{
     if(token!==segToken || i>=files.length) return;
     try{
-      if(!segAudio) segAudio=new Audio();
-      const a=segAudio;
-      const fail=()=>{ if(token!==segToken) return; segAudio=null; speak(fallbackText); };
+      const a=treasureAudio();
+      /* 播放失败不再丢弃音频元素：避免后续题目在非手势上下文中重建元素被移动端拦截 */
+      const fail=()=>{ if(token!==segToken) return; speak(fallbackText); };
       a.onerror=fail;
-      a.onended=()=>{ i++; next(); };
-      a.src=TREASURE_SEG_BASE+files[i]+'.wav';
+      a.onended=()=>{ if(token!==segToken) return; i++; next(); };
+      a.src=TREASURE_SEG_BASE+files[i]+'.mp3';
       const p=a.play();
       if(p && p.then) p.catch(fail);
     }catch(e){ speak(fallbackText); }
