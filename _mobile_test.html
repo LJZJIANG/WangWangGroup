@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>mobile test</title>
+<style>
+  html,body{margin:0;background:#222;}
+  .row{display:flex;gap:16px;padding:10px;}
+  .dev{background:#fff;border:0;display:block;}
+  h3{color:#fff;font:12px/1.4 sans-serif;margin:2px 0;}
+</style></head>
+<body>
+<div class="row">
+  <div><h3 id="t1">320px</h3><iframe id="f1" class="dev" src="index.html" width="320" height="760"></iframe></div>
+  <div><h3 id="t2">375px</h3><iframe id="f2" class="dev" src="index.html" width="375" height="760"></iframe></div>
+</div>
+<script>
+  function go(id, game, label){
+    var f=document.getElementById(id);
+    f.addEventListener('load',function(){
+      try{
+        var w=f.contentWindow;
+        if(w.state && w.state.time){ w.state.time.stopToday=false; w.state.time.seconds=0; }
+        w.startPuzzle(game);
+        document.getElementById(label).textContent = document.getElementById(label).textContent + ' · ' + game;
+      }catch(e){ console.error(e); }
+    });
+  }
+  go('f1','spot','t1');
+  go('f2','maze','t2');
+</script>
+</body></html>
