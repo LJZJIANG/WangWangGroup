@@ -158,12 +158,14 @@
   .spot-cell.wrong { animation:shake .3s; }
 
   /* 迷宫 */
-  .maze-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; max-width:360px; margin:16px auto; }
-  .maze-cell { aspect-ratio:1; border-radius:10px; background:#fff; border:2px solid var(--line); font-size:26px;
+  .maze-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:5px; max-width:392px; margin:16px auto; }
+  .maze-cell { aspect-ratio:1; border-radius:8px; background:#fff; border:2px solid var(--line); font-size:24px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .maze-cell.wall { background:#d9dde3; border-color:#cbd2dc; }
   .maze-cell.pet { background:#fff1d6; border-color:var(--yellow); }
   .maze-cell.goal { background:#d1fae5; border-color:var(--green); }
+  .maze-cell.locked { background:#eef2f7; border-color:#cbd2dc; color:#9ca3af; }
+  .maze-cell.bone { background:#fff7e6; border-color:var(--yellow); }
 
   /* 开心画画板 */
   .draw-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
@@ -417,6 +419,15 @@
     </div>
     <div id="lockStopped" style="display:none;">
       <p style="font-weight:700;">已锁定，明天再继续玩吧～ 🌙</p>
+      <div id="stoppedUnlockArea">
+        <p style="color:var(--muted);font-size:13px;">需要继续玩？请家长输入答案解锁（再玩 15 分钟）</p>
+        <div class="math-unlock" id="sQ"></div>
+        <input type="text" inputmode="numeric" id="sInput" placeholder="家长输入答案">
+        <div class="err" id="sErr"></div>
+        <div class="row" style="justify-content:center;margin-top:10px;gap:10px;">
+          <button class="btn primary" id="sOk">家长解锁</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -438,12 +449,12 @@ const CHAR_MAP = Object.fromEntries(CHARACTERS.map(c=>[c.id,c]));
 const DIFF_BY_LEVEL = {1:'marshall', 2:'skye', 3:'ryder'};
 
 const PUZZLES = [
-  {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点一点或朝空格方向滑动数字块，把 1-8 按顺序排好'},
   {id:'memory', name:'记忆配对', char:'rocky',   level:'P0', icon:'🃏', hint:'翻牌找相同的图案，全部配成对'},
   {id:'spot',   name:'找不同',   char:'everest', level:'P0', icon:'🔍', hint:'两幅图有 3 处不同，点右边不同的格子'},
-  {id:'maze',   name:'迷宫',     char:'zuma',    level:'P0', icon:'🌀', hint:'点一点，帮路马走到骨头那里'},
+  {id:'maze',   name:'迷宫',     char:'zuma',    level:'P0', icon:'🌀', hint:'点一点，帮路马收集 3 根骨头，找齐后救援站才会开门'},
   {id:'draw',   name:'开心画画板', char:'chase',   level:'P0', icon:'🎨', hint:'选一个小动物，在它的简笔画上画出线条～'},
   {id:'order',  name:'数量排序', char:'tracker', level:'P0', icon:'🔢', hint:'按数量从少到多，依次点一点'},
+  {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点一点或朝空格方向滑动数字块，把 1-8 按顺序排好'},
 ];
 
 const SOUND_EVENTS = {
@@ -560,7 +571,7 @@ function triggerLock(){
   if(lockShown) return;
   lockShown=true; gameActive=false; sfx('lock');
   buildLockQuestion();
-  show('overlay-lock');
+  showOverlay('overlay-lock');
   document.getElementById('lockChoices').style.display='none';
   document.getElementById('lockStopped').style.display='none';
   document.getElementById('lockUnlockArea').style.display='block';
@@ -1016,10 +1027,33 @@ function onSpotClick(i,el){
 }
 
 /* —— 迷宫 —— */
-let maze={grid:[], rows:6, cols:6, pos:{r:0,c:0}, goal:{r:5,c:5}};
-function mazeBuild(R,C){
+let maze={grid:[], rows:8, cols:8, pos:{r:0,c:0}, goal:{r:7,c:7}, bones:[], bonesGot:{}, got:0, steps:0};
+/* 用深度优先回溯生成迷宫通道：从起点生长出一棵通道树，其余格子为墙，
+   走廊宽度为 1 格，起点到终点路径唯一，岔路和死胡同更多，难度更高 */
+function mazeBuild(R,C,openTarget){
   const grid=[];
-  for(let r=0;r<R;r++){ grid[r]=[]; for(let c=0;c<C;c++){ grid[r][c]={wall:(r===0&&c===0)||(r===R-1&&c===C-1)?false:(Math.random()<0.28)}; } }
+  for(let r=0;r<R;r++){ grid[r]=[]; for(let c=0;c<C;c++){ grid[r][c]={wall:true,bone:false}; } }
+  const open=Array.from({length:R},()=>new Array(C).fill(false));
+  const goal={r:R-1,c:C-1};
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  const start={r:0,c:0};
+  open[0][0]=true; grid[0][0].wall=false;
+  let openCount=1;
+  const stack=[start];
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const opts=[];
+    for(const d of dirs){
+      const nr=cur.r+d[0], nc=cur.c+d[1];
+      if(nr<0||nc<0||nr>=R||nc>=C) continue;
+      if(!open[nr][nc]) opts.push({r:nr,c:nc});
+    }
+    if(!opts.length){ stack.pop(); continue; }
+    const next=opts[randInt(0,opts.length-1)];
+    open[next.r][next.c]=true; grid[next.r][next.c].wall=false; openCount++;
+    stack.push(next);
+    if(openCount>=openTarget && open[goal.r][goal.c]) break;
+  }
   return grid;
 }
 function mazePath(grid,R,C,start,goal){
@@ -1045,39 +1079,104 @@ function mazePath(grid,R,C,start,goal){
   }
   return null;
 }
+/* 在离起点有一定距离的通道上随机放 3 根骨头 */
+function mazePlaceBones(grid,R,C,goal){
+  const cand=[];
+  for(let r=0;r<R;r++) for(let c=0;c<C;c++){
+    if(grid[r][c].wall) continue;
+    if(r===0&&c===0) continue;
+    if(r===goal.r&&c===goal.c) continue;
+    const path=mazePath(grid,R,C,{r:0,c:0},{r,c});
+    if(path && path.length>=3) cand.push({r,c});
+  }
+  const picked=shuffle(cand).slice(0,3);
+  picked.forEach(b=>grid[b.r][b.c].bone=true);
+  return picked;
+}
 function startMaze(){
-  const R=6,C=6; let grid;
-  do{ grid=mazeBuild(R,C); }while(!mazePath(grid,R,C,{r:0,c:0},{r:R-1,c:C-1}));
-  maze={grid, rows:R, cols:C, pos:{r:0,c:0}, goal:{r:R-1,c:C-1}};
+  const R=8,C=8, openTarget=Math.round(R*C*0.62);
+  let grid, guard=0;
+  do{ grid=mazeBuild(R,C,openTarget); guard++; }
+  while(guard<50 && !mazePath(grid,R,C,{r:0,c:0},{r:R-1,c:C-1}));
+  const goal={r:R-1,c:C-1};
+  const bones=mazePlaceBones(grid,R,C,goal);
+  maze={grid, rows:R, cols:C, pos:{r:0,c:0}, goal, bones, bonesGot:{}, got:0, steps:0};
   renderMaze();
 }
+function mazeAllGot(){ return maze.got>=maze.bones.length; }
 function renderMaze(){
   const b=$('pzBody');
   const cc=CHAR_MAP['zuma'];
-  b.innerHTML='<div class="maze-grid"></div><div style="text-align:center;color:var(--muted);font-size:14px;margin-top:8px;">点一点，帮'+cc.name+'走到🍖那里</div>';
+  const all=mazeAllGot();
+  b.innerHTML='<div class="maze-grid"></div>'+
+    '<div style="text-align:center;font-size:14px;margin-top:8px;" id="mazeFb"></div>'+
+    '<div style="text-align:center;margin-top:8px;">'+
+      '<button class="btn ghost" style="min-height:40px;padding:6px 14px;font-size:14px;" onclick="startMaze()">🔄 换个迷宫</button></div>';
   const g=b.querySelector('.maze-grid');
   maze.grid.forEach((row,r)=>row.forEach((cell,c)=>{
     const d=document.createElement('div');
     const isPos=(r===maze.pos.r&&c===maze.pos.c), isGoal=(r===maze.goal.r&&c===maze.goal.c);
-    d.className='maze-cell'+(cell.wall?' wall':'')+(isPos?' pet':'')+(isGoal?' goal':'');
-    d.innerHTML = cell.wall ? '🧱' : (isPos ? '<img src="'+cc.img+'" alt="'+cc.name+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">' : (isGoal ? '🍖' : ''));
+    const isBone=cell.bone && !maze.bonesGot[r+','+c];
+    let cls='maze-cell';
+    if(cell.wall) cls+=' wall';
+    else if(isPos) cls+=' pet';
+    else if(isGoal) cls+= all ? ' goal':' locked';
+    else if(isBone) cls+=' bone';
+    d.className=cls;
+    if(isGoal) d.id='mazeGoal';
+    d.innerHTML = cell.wall ? '🧱'
+      : isPos ? '<img src="'+cc.img+'" alt="'+cc.name+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">'
+      : isGoal ? (all ? '🚒' : '🔒')
+      : isBone ? '🦴' : '';
     d.onclick=()=>onMazeClick(r,c);
     g.appendChild(d);
   }));
+  const fb=$('mazeFb');
+  if(fb){
+    fb.innerHTML = all
+      ? '<b style="color:var(--green);">救援站开门啦！快走进救援站吧！</b> · 已走 '+maze.steps+' 步'
+      : '🦴 骨头 '+maze.got+' / '+maze.bones.length+' · 已走 '+maze.steps+' 步 · 找齐骨头后救援站才会开门';
+  }
 }
 function onMazeClick(r,c){
   if(maze.grid[r][c].wall) return;
+  if(r===maze.goal.r && c===maze.goal.c && !mazeAllGot()){
+    sfxWrong(); voice('zuma','wrong','先把骨头都收集起来吧');
+    const fb=$('mazeFb');
+    if(fb) fb.innerHTML='<b style="color:var(--red);">门还锁着～ 还要找 '+(maze.bones.length-maze.got)+' 根骨头</b>';
+    return;
+  }
   const steps=mazePath(maze.grid,maze.rows,maze.cols,maze.pos,{r,c});
   if(!steps) return;
   mazeMove(steps);
 }
 function mazeMove(steps){
-  if(!steps.length) return;
+  if(!steps.length){ mazeArrive(); return; }
   const step=steps.shift();
-  maze.pos=step; sfx('flip');
-  if(step.r===maze.goal.r && step.c===maze.goal.c){ renderMaze(); setTimeout(()=>puzzleWin(PUZZLES.find(p=>p.id==='maze')),350); return; }
+  maze.pos=step; maze.steps++; sfx('flip');
   renderMaze();
-  setTimeout(()=>mazeMove(steps),140);
+  setTimeout(()=>mazeMove(steps),120);
+}
+function mazeArrive(){
+  const {r,c}=maze.pos;
+  const key=r+','+c;
+  if(maze.grid[r][c].bone && !maze.bonesGot[key]){
+    maze.bonesGot[key]=true; maze.got++;
+    if(mazeAllGot()){
+      sfx('correct2');
+      voice('zuma','win','骨头收集齐啦，快去救援站');
+      renderMaze();
+      const gEl=$('mazeGoal'); if(gEl) animate(gEl,'anim-pop');
+      return;
+    }
+    sfx('correct'); voice('zuma','correct','捡到骨头啦');
+    renderMaze();
+    return;
+  }
+  if(r===maze.goal.r && c===maze.goal.c && mazeAllGot()){
+    renderMaze();
+    setTimeout(()=>puzzleWin(PUZZLES.find(p=>p.id==='maze')),350);
+  }
 }
 
 /* —— 开心画画板 —— */
@@ -1527,7 +1626,8 @@ function onEnterParent(){
 let verifyTarget=null; // 'parent' | 'lock'
 let currentUnlock={a:0,b:0,ans:0};
 function newUnlock(){
-  const a=randInt(11,25), b=randInt(11,25);
+  // 家长验证题目调简单：两因数均 ≤10，答案保证在 100 以内
+  const a=randInt(2,10), b=randInt(2,10);
   return {a,b,ans:a*b};
 }
 function buildVerifyQuestion(){
@@ -1539,6 +1639,11 @@ function buildLockQuestion(){
   currentUnlock=newUnlock();
   $('lQ').textContent=currentUnlock.a+' × '+currentUnlock.b+' = ?';
   $('lInput').value=''; $('lErr').textContent='';
+}
+function buildStoppedQuestion(){
+  currentUnlock=newUnlock();
+  $('sQ').textContent=currentUnlock.a+' × '+currentUnlock.b+' = ?';
+  $('sInput').value=''; $('sErr').textContent='';
 }
 function verifyAnswer(inputEl, errEl, onSuccess){
   const v=(inputEl.value||'').trim();
@@ -1585,7 +1690,13 @@ function bindEvents(){
   });
   $('lInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('lOk').onclick(); });
   $('lMore').onclick=()=>{ state.time.extraMinutes+=15; state.time.stopToday=false; saveState(); lockShown=false; gameActive=true; updateTimer(); hideOverlay('overlay-lock'); sfxWin(); };
-  $('lStop').onclick=()=>{ state.time.stopToday=true; saveState(); $('lockChoices').style.display='none'; $('lockStopped').style.display=''; updateTimer(); };
+  $('lStop').onclick=()=>{ state.time.stopToday=true; saveState(); $('lockChoices').style.display='none'; $('lockStopped').style.display=''; buildStoppedQuestion(); updateTimer(); };
+  // 已停止后家长仍可解锁继续玩
+  $('sOk').onclick=()=>verifyAnswer($('sInput'), $('sErr'), ()=>{
+    sfxWin();
+    state.time.extraMinutes+=15; state.time.stopToday=false; saveState(); lockShown=false; gameActive=true; updateTimer(); hideOverlay('overlay-lock');
+  });
+  $('sInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('sOk').onclick(); });
 }
 
 /* ============ 计时主循环 ============ */
@@ -1616,6 +1727,7 @@ if(isLocked()){
   lockShown=true;
   if(state.time.stopToday){
     $('lockUnlockArea').style.display='none'; $('lockChoices').style.display='none'; $('lockStopped').style.display='';
+    buildStoppedQuestion();
   } else {
     buildLockQuestion(); $('lockUnlockArea').style.display='block'; $('lockChoices').style.display='none'; $('lockStopped').style.display='none';
   }
