@@ -558,18 +558,14 @@ function speak(text){
     if(!('speechSynthesis' in window)) return;
     const synth=window.speechSynthesis;
     const u=new SpeechSynthesisUtterance(text);
-    u.lang='zh-CN'; u.rate=0.95; u.pitch=1.2; u.volume=1;
+    u.lang='zh-CN'; u.rate=1; u.pitch=1.1; u.volume=1;
     /* 移动端 voices 可能延迟加载，尽量指定中文语音 */
     const vs=synth.getVoices?synth.getVoices():[];
     const zh=vs.find(v=>/^zh/i.test(v.lang))||vs.find(v=>/Chinese|中文|普通话/i.test((v.name||'')+' '+(v.lang||'')));
     if(zh) u.voice=zh;
-    /* iOS/Android：cancel() 后同一帧 speak() 会静音，需延后重播 */
-    if(synth.speaking||synth.pending){
-      synth.cancel();
-      setTimeout(()=>{ try{ synth.speak(u); }catch(e){} }, 180);
-    }else{
-      synth.speak(u);
-    }
+    if(synth.paused) synth.resume();
+    /* 直接入队播报：保证 speak() 始终在用户手势内同步调用（iOS/Android 关键） */
+    synth.speak(u);
   }catch(e){}
 }
 const VOICE_BASE='audio/';
@@ -586,6 +582,22 @@ function voice(charId, event, fallbackText){
   }catch(e){ fallback(); }
 }
 
+/* 玩法提示播报：优先播放预置音频（微信/QQ 内置浏览器不支持 TTS），失败回退语音合成 */
+const HINT_BASE='audio/hints/';
+let hintAudio=null;
+function speakHint(id, text){
+  if(!state.settings.sound) return;
+  let fell=false;
+  const fallback=()=>{ if(fell) return; fell=true; speak(text); };
+  try{
+    if(!hintAudio) hintAudio=new Audio();
+    hintAudio.onerror=fallback;
+    hintAudio.src=HINT_BASE+id+'.wav';
+    const p=hintAudio.play();
+    if(p && p.then) p.catch(fallback);
+  }catch(e){ fallback(); }
+}
+
 /* 移动端自动播放策略：首次用户手势内解锁音频与语音引擎 */
 let audioUnlocked=false;
 function unlockAudio(){
@@ -596,10 +608,8 @@ function unlockAudio(){
     if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
   }catch(e){}
   try{
-    if('speechSynthesis' in window){
-      const u=new SpeechSynthesisUtterance(' '); u.volume=0;
-      window.speechSynthesis.speak(u);
-    }
+    /* 触发语音列表加载，便于 speak() 选中中文语音；不额外播报以免占用队列 */
+    if('speechSynthesis' in window && speechSynthesis.getVoices) speechSynthesis.getVoices();
   }catch(e){}
 }
 ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
@@ -892,8 +902,8 @@ function startPuzzle(id){
   const sel=CHAR_MAP[selectedChar];
   $('pzTitle').textContent=p.icon+' '+p.name;
   $('pzHintText').textContent=p.hint.split('路马').join(sel.name);
-  $('pzHintSpeak').onclick=()=>speak($('pzHintText').textContent);
-  speak($('pzHintText').textContent);   /* 进入游戏自动播报玩法提示 */
+  $('pzHintSpeak').onclick=()=>speakHint(id, $('pzHintText').textContent);
+  speakHint(id, $('pzHintText').textContent);   /* 进入游戏自动播报玩法提示 */
   gameActive=true;
   show('screen-puzzle');
   if(id==='shoot') startShoot();
