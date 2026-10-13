@@ -819,12 +819,12 @@ function addRecord(r){ r.ts=Date.now(); state.records.push(r); if(state.records.
 /* ============ 益智小游戏 ============ */
 function renderPuzzles(){
   const g=$('puzzleGrid'); g.innerHTML='';
+  const sel=CHAR_MAP[selectedChar];   /* 角色展示跟随首页所选角色 */
   PUZZLES.forEach(p=>{
-    const cc=CHAR_MAP[p.char];
     const d=document.createElement('div');
     d.className='pz-card';
     d.innerHTML='<div class="pz-emoji">'+p.icon+'</div><div class="pz-name">'+p.name+'</div>'+
-      '<div style="font-size:12px;color:var(--muted);">'+cc.name+'</div><div class="pz-tag">'+p.level+'</div>';
+      '<div style="font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:4px;">'+charImg(sel,20)+'<span>'+sel.name+'</span></div><div class="pz-tag">'+p.level+'</div>';
     d.onclick=()=>{ sfx('click'); startPuzzle(p.id); };
     g.appendChild(d);
   });
@@ -835,8 +835,9 @@ function startPuzzle(id){
   $('puzzleGrid').style.display='none';
   $('puzzlePlay').style.display='';
   const p=PUZZLES.find(x=>x.id===id);
+  const sel=CHAR_MAP[selectedChar];
   $('pzTitle').textContent=p.icon+' '+p.name;
-  $('pzHint').textContent=p.hint;
+  $('pzHint').textContent=p.hint.split('路马').join(sel.name);
   gameActive=true;
   show('screen-puzzle');
   if(id==='puzzle') startSlider();
@@ -848,11 +849,12 @@ function startPuzzle(id){
 }
 function puzzleWin(p){
   gameActive=false;
-  const cc=CHAR_MAP[p.char];
+  const cc=CHAR_MAP[p.char];           /* 贴纸归属仍按各游戏固定角色 */
+  const sel=CHAR_MAP[selectedChar];    /* 通关语音跟随首页所选角色 */
   addSticker(cc.id);
   addRecord({type:'益智小游戏', label:p.name, level:'-', score:100, accuracy:100,
     duration:Math.round((Date.now()-pz.startAt)/1000)});
-  sfxWin(); confetti(); voice(p.char,'win','太棒了！');
+  sfxWin(); confetti(); voice(sel.id,'win','太棒了！');
   renderStickers(); updateStickerPill();
   setTimeout(()=>{
     $('pzBody').innerHTML='<div class="result-box"><div style="font-size:60px;">🎉</div>'+
@@ -1016,7 +1018,7 @@ function renderSpot(){
 function onSpotClick(i,el){
   if(el.classList.contains('found')) return;
   if(spot.diffs.includes(i)){
-    el.classList.add('found'); spot.found++; sfx('correct'); voice('everest','correct','找到了！');
+    el.classList.add('found'); spot.found++; sfx('correct'); voice(selectedChar,'correct','找到了！');
     $('spotFb').textContent='已找出 '+spot.found+' / 3 处不同';
     if(spot.found>=3) puzzleWin(PUZZLES.find(p=>p.id==='spot'));
   } else {
@@ -1106,7 +1108,7 @@ function startMaze(){
 function mazeAllGot(){ return maze.got>=maze.bones.length; }
 function renderMaze(){
   const b=$('pzBody');
-  const cc=CHAR_MAP['zuma'];
+  const cc=CHAR_MAP[selectedChar];
   const all=mazeAllGot();
   b.innerHTML='<div class="maze-grid"></div>'+
     '<div style="text-align:center;font-size:14px;margin-top:8px;" id="mazeFb"></div>'+
@@ -1141,7 +1143,7 @@ function renderMaze(){
 function onMazeClick(r,c){
   if(maze.grid[r][c].wall) return;
   if(r===maze.goal.r && c===maze.goal.c && !mazeAllGot()){
-    sfxWrong(); voice('zuma','wrong','先把骨头都收集起来吧');
+    sfxWrong(); voice(selectedChar,'wrong','先把骨头都收集起来吧');
     const fb=$('mazeFb');
     if(fb) fb.innerHTML='<b style="color:var(--red);">门还锁着～ 还要找 '+(maze.bones.length-maze.got)+' 根骨头</b>';
     return;
@@ -1164,12 +1166,12 @@ function mazeArrive(){
     maze.bonesGot[key]=true; maze.got++;
     if(mazeAllGot()){
       sfx('correct2');
-      voice('zuma','win','骨头收集齐啦，快去救援站');
+      voice(selectedChar,'win','骨头收集齐啦，快去救援站');
       renderMaze();
       const gEl=$('mazeGoal'); if(gEl) animate(gEl,'anim-pop');
       return;
     }
-    sfx('correct'); voice('zuma','correct','捡到骨头啦');
+    sfx('correct'); voice(selectedChar,'correct','捡到骨头啦');
     renderMaze();
     return;
   }
@@ -1569,7 +1571,7 @@ function renderOrder(){
 function onOrderClick(btn,cnt){
   if(btn.classList.contains('done')) return;
   if(cnt===orderGame.sorted[orderGame.picked]){
-    btn.classList.add('done'); sfx('correct'); voice('tracker','correct','对啦！');
+    btn.classList.add('done'); sfx('correct'); voice(selectedChar,'correct','对啦！');
     orderGame.picked++;
     if(orderGame.picked>=orderGame.sorted.length) puzzleWin(PUZZLES.find(p=>p.id==='order'));
   } else {
