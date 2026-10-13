@@ -226,6 +226,50 @@ h1.pg { font-size:26px; margin:8px 0 4px; }
 @media (hover:hover){ .treasure-speak:hover { border-color:var(--blue); } }
 .treasure-speak:active { transform:scale(.94); }
 
+/* 火柴棒游戏 */
+.ms-question { text-align:center; font-size:19px; font-weight:800; color:var(--ink); margin:6px 0 12px; line-height:1.4; }
+.ms-stage { display:flex; justify-content:center; align-items:center; padding:14px 0 6px; }
+.ms-digit {
+  --dw:clamp(96px,30vw,150px);           /* 数字宽度 */
+  --t:calc(var(--dw) * .16);              /* 火柴棒粗细 */
+  --dh:calc(var(--dw) * 5 / 3);           /* 数字高度 */
+  --sl:calc((var(--dh) - var(--t) * 3) / 2); /* 竖段长度 */
+  position:relative; width:var(--dw); height:var(--dh);
+}
+.ms-seg { position:absolute; border-radius:6px; transition:background .15s, box-shadow .15s, transform .15s; }
+/* 横段：上 a / 中 g / 下 d */
+.ms-seg.sa,.ms-seg.sg,.ms-seg.sd { left:var(--t); width:calc(var(--dw) - var(--t) * 2); height:var(--t); }
+.ms-seg.sa { top:0; }
+.ms-seg.sg { top:calc((var(--dh) - var(--t)) / 2); }
+.ms-seg.sd { bottom:0; }
+/* 竖段：左上 f / 右上 b / 左下 e / 右下 c */
+.ms-seg.sf,.ms-seg.sb,.ms-seg.se,.ms-seg.sc { width:var(--t); height:var(--sl); }
+.ms-seg.sf { left:0; top:var(--t); }
+.ms-seg.sb { right:0; top:var(--t); }
+.ms-seg.se { left:0; top:calc(var(--t) * 2 + var(--sl)); }
+.ms-seg.sc { right:0; top:calc(var(--t) * 2 + var(--sl)); }
+/* 点亮 = 真实火柴棒（红头 + 木杆） */
+.ms-seg.on {
+  background:linear-gradient(90deg,#ef4444 0 14%,#f59e0b 14% 32%,#fcd34d 32% 100%);
+  box-shadow:0 2px 6px rgba(239,68,68,.35), inset 0 0 3px rgba(255,255,255,.55);
+}
+.ms-seg.sf.on,.ms-seg.sb.on,.ms-seg.se.on,.ms-seg.sc.on {
+  background:linear-gradient(180deg,#ef4444 0 14%,#f59e0b 14% 32%,#fcd34d 32% 100%);
+}
+/* 空位 = 虚线框 */
+.ms-seg.off { background:transparent; border:2px dashed #cbd5e1; }
+.ms-seg.tap { cursor:pointer; }
+@media (hover:hover){ .ms-seg.tap:hover { filter:brightness(1.1); } }
+.ms-seg.hold { outline:3px solid var(--blue); outline-offset:2px; animation:pop .25s; }
+.ms-seg.miss { animation:shake .3s; border-color:var(--red); }
+.ms-fb { min-height:26px; text-align:center; font-size:16px; font-weight:700; color:var(--muted); margin:10px 0 14px; }
+.ms-opts { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.ms-opt { width:72px; height:72px; background:#fff; border:3px solid var(--line); border-radius:18px;
+  font-size:30px; font-weight:800; color:var(--ink); cursor:pointer; }
+@media (hover:hover){ .ms-opt:hover { border-color:var(--blue); } }
+.ms-opt.done { background:#d1fae5; border-color:var(--green); }
+.ms-opt.wrong { animation:shake .3s; border-color:var(--red); }
+
 /* 贴纸 */
 .stk-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
 .stk-item { text-align:center; background:#fff; border-radius:16px; border:2px solid var(--line); padding:12px 6px; }

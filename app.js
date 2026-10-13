@@ -20,6 +20,7 @@ const PUZZLES = [
   {id:'draw',   name:'开心画画板', char:'chase',   level:'P0', icon:'🎨', hint:'选一个小动物，在它的简笔画上画出线条～'},
   {id:'treasure', name:'奇妙数字探险', char:'tracker', level:'P0', icon:'💎', hint:'看提示，在数字格中找出正确的数字宝藏'},
   {id:'shoot',  name:'射击小游戏', char:'marshall', level:'P0', icon:'🔫', hint:'点一点，用水枪射爆气球，击中 10 个就胜利'},
+  {id:'match',  name:'火柴棒游戏', char:'skye',    level:'P0', icon:'🔥', hint:'点一点火柴棒，添一根、拿一根，把数字变个新样子～'},
   {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点一点或朝空格方向滑动数字块，把 1-8 按顺序排好'},
 ];
 
@@ -478,6 +479,7 @@ function startPuzzle(id){
   show('screen-puzzle');
   if(id==='shoot') startShoot();
   else if(id==='puzzle') startSlider();
+  else if(id==='match') startMatch();
   else if(id==='memory') startMemory();
   else if(id==='spot') startSpot();
   else if(id==='maze') startMaze();
@@ -1539,6 +1541,169 @@ function onTreasureClick(btn,v){
     sfxWrong(); btn.classList.add('wrong');
     setTimeout(()=>btn.classList.remove('wrong'),300);
   }
+}
+
+/* —— 火柴棒游戏 —— */
+/* 用七段数码管的方式把 0-9 画成火柴棒：a上 b右上 c右下 d下 e左下 f左上 g中 */
+const MS_SEG_ORDER=['a','b','c','d','e','f','g'];
+const MS_DIGITS={
+  0:['a','b','c','d','e','f'],
+  1:['b','c'],
+  2:['a','b','g','e','d'],
+  3:['a','b','g','c','d'],
+  4:['f','g','b','c'],
+  5:['a','f','g','c','d'],
+  6:['a','f','g','e','c','d'],
+  7:['a','b','c'],
+  8:['a','b','c','d','e','f','g'],
+  9:['a','b','c','d','f','g'],
+};
+/* 预生成所有“一根火柴棒”就能互相变化的数字组合 */
+const MS_ADD_PAIRS=[], MS_REMOVE_PAIRS=[], MS_MOVE_PAIRS=[];
+(function(){
+  const digs=Object.keys(MS_DIGITS).map(Number);
+  digs.forEach(a=>digs.forEach(b=>{
+    if(a===b) return;
+    const A=new Set(MS_DIGITS[a]), B=new Set(MS_DIGITS[b]);
+    const add=[...B].filter(x=>!A.has(x)), rem=[...A].filter(x=>!B.has(x));
+    if(add.length===1 && rem.length===0) MS_ADD_PAIRS.push({from:a,to:b,seg:add[0]});
+    else if(add.length===0 && rem.length===1) MS_REMOVE_PAIRS.push({from:a,to:b,seg:rem[0]});
+    else if(add.length===1 && rem.length===1) MS_MOVE_PAIRS.push({from:a,to:b,add:add[0],rem:rem[0]});
+  }));
+})();
+let matchGame={round:0, total:6, type:'', from:0, to:0, target:'', live:new Set(), held:null, done:false, opts:[], optsAns:0};
+function startMatch(){
+  matchGame={round:0, total:6, type:'', from:0, to:0, target:'', live:new Set(), held:null, done:false, opts:[], optsAns:0};
+  nextMatchRound();
+}
+function nextMatchRound(){
+  matchGame.round++;
+  if(matchGame.round>matchGame.total){ puzzleWin(PUZZLES.find(p=>p.id==='match')); return; }
+  /* 前 2 关不出现“移一根”，由易到难 */
+  let types=['count','add','remove','add','remove'];
+  if(matchGame.round>=3) types=types.concat(['move','move']);
+  const type=types[randInt(0,types.length-1)];
+  matchGame.type=type; matchGame.held=null; matchGame.done=false;
+  if(type==='count'){
+    const from=randInt(0,9);
+    matchGame.from=from; matchGame.to=from; matchGame.live=new Set(MS_DIGITS[from]);
+    matchGame.optsAns=MS_DIGITS[from].length;
+    matchGame.opts=makeMatchCountOptions(matchGame.optsAns);
+  } else {
+    const pool = type==='add'?MS_ADD_PAIRS : type==='remove'?MS_REMOVE_PAIRS : MS_MOVE_PAIRS;
+    const p=pool[randInt(0,pool.length-1)];
+    matchGame.from=p.from; matchGame.to=p.to;
+    matchGame.target = type==='move'? p.rem : p.seg;
+    matchGame.live=new Set(MS_DIGITS[p.from]);
+  }
+  renderMatch();
+}
+function makeMatchCountOptions(ans){
+  const set=new Set([ans]);
+  while(set.size<3){
+    const v = Math.random()<0.5 ? ans+randInt(-2,2) : randInt(2,7);
+    if(v>=2 && v<=7) set.add(v);
+  }
+  return shuffle([...set]);
+}
+function matchQuestionText(){
+  const g=matchGame;
+  if(g.type==='count') return '数一数：这个数字用了几根火柴棒？';
+  const verb = g.type==='add' ? '添一根' : (g.type==='remove' ? '拿走一根' : '移动一根');
+  return verb+'火柴棒，把 '+g.from+' 变成 '+g.to+' 吧！';
+}
+function matchPromptText(){
+  const g=matchGame;
+  if(g.type==='count') return '点一点下面的数字，选出正确的根数吧～';
+  if(g.type==='add') return '点一点空空的虚线位置，添上一根火柴棒～';
+  if(g.type==='remove') return '点一点多余的那根火柴棒，把它拿走～';
+  return g.held ? '再点一个空位，把火柴棒放上去吧～' : '先点一根要移走的火柴棒～';
+}
+function matchSegClickable(seg){
+  const g=matchGame, on=g.live.has(seg);
+  if(g.type==='add') return !on;
+  if(g.type==='remove') return on;
+  if(g.type==='move') return true;
+  return false;
+}
+function renderMatch(){
+  const g=matchGame, b=$('pzBody');
+  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;">🔥 第 '+g.round+' / '+g.total+' 关</div>'+
+    '<div class="ms-question">'+matchQuestionText()+'</div>'+
+    '<div class="ms-stage"><div class="ms-digit" id="msDigit"></div></div>'+
+    '<div class="ms-fb" id="msFb">'+matchPromptText()+'</div>'+
+    (g.type==='count' ? '<div class="ms-opts" id="msOpts"></div>' : '');
+  const d=b.querySelector('#msDigit');
+  MS_SEG_ORDER.forEach(s=>{
+    const el=document.createElement('div');
+    el.id='ms-seg-'+s;
+    el.className='ms-seg s'+s+(g.live.has(s)?' on':' off')+(g.held===s?' hold':'');
+    if(matchSegClickable(s)){
+      el.classList.add('tap');
+      el.onclick=()=>onMatchSegClick(s);
+    }
+    d.appendChild(el);
+  });
+  if(g.type==='count'){
+    const box=b.querySelector('#msOpts');
+    g.opts.forEach(v=>{
+      const btn=document.createElement('button'); btn.className='ms-opt'; btn.textContent=v;
+      btn.onclick=()=>onMatchOptionClick(btn,v);
+      box.appendChild(btn);
+    });
+  }
+}
+function onMatchSegClick(seg){
+  const g=matchGame;
+  if(g.done || g.type==='count') return;
+  const on=g.live.has(seg);
+  if(g.type==='add'){
+    if(on) return matchMiss(seg,'这根火柴棒已经有啦～');
+    if(seg===g.target){ g.live.add(seg); matchCorrect(); }
+    else matchMiss(seg,'这一根不太对哦，再想想～');
+  } else if(g.type==='remove'){
+    if(!on) return matchMiss(seg,'这个位置是空的哦～');
+    if(seg===g.target){ g.live.delete(seg); matchCorrect(); }
+    else matchMiss(seg,'这根还要用呢，再看看～');
+  } else if(g.type==='move'){
+    if(g.held==null){
+      if(on){ g.held=seg; sfx('click'); renderMatch(); }
+      else matchMiss(seg,'先点一根亮着的火柴棒吧～');
+    } else if(!on){
+      const live=new Set(g.live); live.delete(g.held); live.add(seg);
+      if(live.size===MS_DIGITS[g.to].length && [...live].every(x=>MS_DIGITS[g.to].includes(x))){
+        g.live=live; g.held=null; matchCorrect();
+      } else {
+        g.held=null; renderMatch();
+        matchMiss(seg,'这样变不成 '+g.to+' 哦，再试试～');
+      }
+    } else if(seg===g.held){ g.held=null; sfx('click'); renderMatch(); }
+    else { g.held=seg; sfx('click'); renderMatch(); }
+  }
+}
+function onMatchOptionClick(btn,v){
+  const g=matchGame;
+  if(g.done) return;
+  if(v===g.optsAns){ btn.classList.add('done'); matchCorrect(); }
+  else { sfxWrong(); btn.classList.add('wrong'); setTimeout(()=>btn.classList.remove('wrong'),300); }
+}
+function matchMiss(seg,text){
+  sfxWrong();
+  const el=$('ms-seg-'+seg);
+  if(el){ el.classList.remove('miss'); void el.offsetWidth; el.classList.add('miss'); }
+  const fb=$('msFb'); if(fb) fb.innerHTML=text;
+}
+function matchCorrect(){
+  const g=matchGame;
+  if(g.done) return;
+  g.done=true;
+  sfx('correct');
+  voice(selectedChar,'correct','答对啦，真聪明！');
+  renderMatch();
+  const fb=$('msFb');
+  const okText = g.type==='count' ? '太棒了！就是 '+g.optsAns+' 根 啦 🎉' : '太棒了！变成 '+g.to+' 啦 🎉';
+  if(fb) fb.innerHTML='<b style="color:var(--green);">'+okText+'</b>';
+  setTimeout(()=>{ if(gameActive) nextMatchRound(); }, 900);
 }
 
 /* ============ 家长中心 ============ */
