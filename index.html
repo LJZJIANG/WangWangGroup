@@ -555,9 +555,20 @@ function sfxWrong(){ playTone(300,0.18,'sine',0.1,0); playTone(240,0.24,'sine',0
 function speak(text){
   if(!state.settings.sound) return;
   try{
-    if('speechSynthesis' in window){
-      const u=new SpeechSynthesisUtterance(text); u.lang='zh-CN'; u.rate=0.95; u.pitch=1.2;
-      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    if(!('speechSynthesis' in window)) return;
+    const synth=window.speechSynthesis;
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; u.rate=0.95; u.pitch=1.2; u.volume=1;
+    /* 移动端 voices 可能延迟加载，尽量指定中文语音 */
+    const vs=synth.getVoices?synth.getVoices():[];
+    const zh=vs.find(v=>/^zh/i.test(v.lang))||vs.find(v=>/Chinese|中文|普通话/i.test((v.name||'')+' '+(v.lang||'')));
+    if(zh) u.voice=zh;
+    /* iOS/Android：cancel() 后同一帧 speak() 会静音，需延后重播 */
+    if(synth.speaking||synth.pending){
+      synth.cancel();
+      setTimeout(()=>{ try{ synth.speak(u); }catch(e){} }, 180);
+    }else{
+      synth.speak(u);
     }
   }catch(e){}
 }
@@ -574,6 +585,26 @@ function voice(charId, event, fallbackText){
     if(p && p.then) p.catch(fallback);
   }catch(e){ fallback(); }
 }
+
+/* 移动端自动播放策略：首次用户手势内解锁音频与语音引擎 */
+let audioUnlocked=false;
+function unlockAudio(){
+  if(audioUnlocked) return;
+  audioUnlocked=true;
+  try{
+    ensureCtx();
+    if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+  try{
+    if('speechSynthesis' in window){
+      const u=new SpeechSynthesisUtterance(' '); u.volume=0;
+      window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+['pointerdown','touchstart','click','keydown'].forEach(ev=>{
+  document.addEventListener(ev, unlockAudio, {passive:true, once:false});
+});
 
 /* ============ 时间锁 ============ */
 function limitSeconds(){ return (state.settings.weekdays[getTodayWeekday()]||30)*60 + state.time.extraMinutes*60; }
