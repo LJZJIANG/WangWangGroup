@@ -563,7 +563,13 @@ function speak(text){
     const vs=synth.getVoices?synth.getVoices():[];
     const zh=vs.find(v=>/^zh/i.test(v.lang))||vs.find(v=>/Chinese|中文|普通话/i.test((v.name||'')+' '+(v.lang||'')));
     if(zh) u.voice=zh;
+    /* 移动端播放队列被卡住会让后续播报全部静音：队列非空时先清空（空闲时 cancel 无副作用） */
+    if(synth.speaking||synth.pending) synth.cancel();
     if(synth.paused) synth.resume();
+    /* 部分安卓机型指定 voice 后不发声，出错时去掉 voice 原文重试一次 */
+    u.onerror=()=>{ if(!u.voice) return;
+      try{ const r=new SpeechSynthesisUtterance(text); r.lang='zh-CN'; r.rate=1; r.pitch=1.1; r.volume=1; synth.speak(r); }catch(e){}
+    };
     /* 直接入队播报：保证 speak() 始终在用户手势内同步调用（iOS/Android 关键） */
     synth.speak(u);
   }catch(e){}
@@ -600,6 +606,7 @@ function speakHint(id, text){
 
 /* 移动端自动播放策略：首次用户手势内解锁音频与语音引擎 */
 let audioUnlocked=false;
+let ttsUnlocked=false;
 function unlockAudio(){
   if(audioUnlocked) return;
   audioUnlocked=true;
@@ -608,8 +615,10 @@ function unlockAudio(){
     if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
   }catch(e){}
   try{
-    /* 触发语音列表加载，便于 speak() 选中中文语音；不额外播报以免占用队列 */
+    /* 触发语音列表加载，便于 speak() 选中中文语音 */
     if('speechSynthesis' in window && speechSynthesis.getVoices) speechSynthesis.getVoices();
+    /* iOS 需在首次手势内做一次静音空播报解锁 TTS 引擎，否则后续题目播报静音 */
+    if(!ttsUnlocked){ ttsUnlocked=true; speechSynthesis.speak(new SpeechSynthesisUtterance('')); }
   }catch(e){}
 }
 ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
@@ -903,7 +912,7 @@ function startPuzzle(id){
   $('pzTitle').textContent=p.icon+' '+p.name;
   $('pzHintText').textContent=p.hint.split('路马').join(sel.name);
   $('pzHintSpeak').onclick=()=>speakHint(id, $('pzHintText').textContent);
-  speakHint(id, $('pzHintText').textContent);   /* 进入游戏自动播报玩法提示 */
+  if(id!=='treasure') speakHint(id, $('pzHintText').textContent);   /* 数字探险题面即提示，进入时不自动播报玩法提示 */
   gameActive=true;
   show('screen-puzzle');
   if(id==='shoot') startShoot();
@@ -1728,43 +1737,71 @@ const ANIMAL_DRAW={
 };
 
 /* —— 奇妙数字探险 —— */
-let treasureGame={total:3, found:0, target:0, nums:[], condText:''};
+let treasureGame={total:3, found:0, target:0, nums:[], condText:'', segs:[]};
 function startTreasure(){
-  treasureGame={total:3, found:0, target:0, nums:[], condText:''};
+  treasureGame={total:3, found:0, target:0, nums:[], condText:'', segs:[]};
   newTreasureQuestion();
 }
 function newTreasureQuestion(){
   const q=makeTreasureQuestion();
-  treasureGame.target=q.target; treasureGame.nums=q.nums; treasureGame.condText=q.condText;
+  treasureGame.target=q.target; treasureGame.nums=q.nums; treasureGame.condText=q.condText; treasureGame.segs=q.segs;
   renderTreasure();
   speakTreasureHint();
 }
-/* 朗读当前题目（题目无预录语音，直接用 TTS 播报） */
-function speakTreasureHint(){ speak(treasureGame.condText); }
+/* 预录题目片段顺序播放：复用同一 Audio 元素，首次在用户手势内播放即完成移动端音频解锁 */
+const TREASURE_SEG_BASE='audio/treasure/';
+let segAudio=null, segToken=0;
+function playTreasureSegs(files, fallbackText){
+  if(!state.settings.sound) return;
+  segToken++; const token=segToken;
+  let i=0;
+  const next=()=>{
+    if(token!==segToken || i>=files.length) return;
+    try{
+      if(!segAudio) segAudio=new Audio();
+      const a=segAudio;
+      const fail=()=>{ if(token!==segToken) return; segAudio=null; speak(fallbackText); };
+      a.onerror=fail;
+      a.onended=()=>{ i++; next(); };
+      a.src=TREASURE_SEG_BASE+files[i]+'.wav';
+      const p=a.play();
+      if(p && p.then) p.catch(fail);
+    }catch(e){ speak(fallbackText); }
+  };
+  next();
+}
+/* 朗读当前题目：优先播放预录片段（微信/QQ 内置浏览器不支持 TTS），失败回退语音合成 */
+function speakTreasureHint(){
+  if(!state.settings.sound) return;
+  const segs=treasureGame.segs;
+  if(segs && segs.length){ playTreasureSegs(segs, treasureGame.condText); return; }
+  speak(treasureGame.condText);
+}
 /* 生成一道题：恰好一个数字满足条件，干扰项都不满足 */
 function makeTreasureQuestion(){
   const kinds=['gt','lt','eq','max','min'];
   const kind=kinds[randInt(0,kinds.length-1)];
   const pick=()=>randInt(1,9);
-  let nums=[], target=0, condText='';
+  let nums=[], target=0, condText='', segs=[];
   if(kind==='eq'){
     target=pick(); nums=[target];
     while(nums.length<4){ const v=pick(); if(v!==target && !nums.includes(v)) nums.push(v); }
-    condText='找出数字 '+target;
+    condText='找出数字 '+target; segs=['find_num','num'+target];
   } else if(kind==='gt'){
     const n=randInt(3,7); target=randInt(n+1,9); nums=[target];
     while(nums.length<4){ const v=randInt(1,n); if(!nums.includes(v)) nums.push(v); }
-    condText='找出比 '+n+' 大的数字';
+    condText='找出比 '+n+' 大的数字'; segs=['find_than','num'+n,'big_num'];
   } else if(kind==='lt'){
     const n=randInt(3,7); target=randInt(1,n-1); nums=[target];
     while(nums.length<4){ const v=randInt(n,9); if(!nums.includes(v)) nums.push(v); }
-    condText='找出比 '+n+' 小的数字';
+    condText='找出比 '+n+' 小的数字'; segs=['find_than','num'+n,'small_num'];
   } else {
     while(nums.length<4){ const v=pick(); if(!nums.includes(v)) nums.push(v); }
     target=kind==='max'? Math.max(...nums) : Math.min(...nums);
     condText=kind==='max'? '找出最大的数字' : '找出最小的数字';
+    segs=kind==='max'? ['max'] : ['min'];
   }
-  return {nums:shuffle(nums), target, condText};
+  return {nums:shuffle(nums), target, condText, segs};
 }
 function renderTreasure(){
   const b=$('pzBody');
