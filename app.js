@@ -180,6 +180,7 @@ function unlockAudio(){
   }catch(e){}
   /* 首次手势内预加载题目片段，避免进入题目时才加载音频造成播报延迟 */
   preloadTreasureSegs();
+  preloadMatchSegs();
 }
 ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
   document.addEventListener(ev, unlockAudio, {passive:true, once:false});
@@ -474,7 +475,7 @@ function startPuzzle(id){
   $('pzTitle').textContent=p.icon+' '+p.name;
   $('pzHintText').textContent=p.hint.split('路马').join(sel.name);
   $('pzHintSpeak').onclick=()=>speakHint(id, $('pzHintText').textContent);
-  if(id!=='treasure') speakHint(id, $('pzHintText').textContent);   /* 数字探险题面即提示，进入时不自动播报玩法提示 */
+  if(id!=='treasure' && id!=='match') speakHint(id, $('pzHintText').textContent);   /* 数字探险/火柴棒进入即自动播报题面，不再自动播报玩法提示（避免声音冲突） */
   gameActive=true;
   show('screen-puzzle');
   if(id==='shoot') startShoot();
@@ -1440,9 +1441,10 @@ function newTreasureQuestion(){
 const TREASURE_SEG_BASE='audio/treasure/';
 const TREASURE_SEG_FILES=['find_num','find_than','big_num','small_num','max','min','num1','num2','num3','num4','num5','num6','num7','num8','num9'];
 let segToken=0;
-const treasureSegPool={};
-function treasureSegEl(name){
-  if(treasureSegPool[name]) return treasureSegPool[name];
+const segPool={};
+function segEl(name, base){
+  const url=base+name+'.mp3';
+  if(segPool[url]) return segPool[url];
   let a;
   try{
     a=new Audio();
@@ -1451,8 +1453,8 @@ function treasureSegEl(name){
     a.style.display='none';
     document.body.appendChild(a);
   }catch(e){ a=new Audio(); }
-  a.src=TREASURE_SEG_BASE+name+'.mp3';
-  treasureSegPool[name]=a;
+  a.src=url;
+  segPool[url]=a;
   return a;
 }
 /* 启动/首次手势时预加载全部片段，确保一进入题目就播报 */
@@ -1460,16 +1462,16 @@ let treasureSegsPreloaded=false;
 function preloadTreasureSegs(){
   if(treasureSegsPreloaded) return;
   treasureSegsPreloaded=true;
-  TREASURE_SEG_FILES.forEach(f=>{ try{ treasureSegEl(f); }catch(e){} });
+  TREASURE_SEG_FILES.forEach(f=>{ try{ segEl(f, TREASURE_SEG_BASE); }catch(e){} });
 }
-function playTreasureSegs(files, fallbackText){
+function playSegs(files, fallbackText, base){
   if(!state.settings.sound) return;
   segToken++; const token=segToken;
   let i=0;
   const next=()=>{
     if(token!==segToken || i>=files.length) return;
     try{
-      const a=treasureSegEl(files[i]);
+      const a=segEl(files[i], base);
       /* 播放失败不丢弃元素：避免后续题目在非手势上下文中重建元素被移动端拦截 */
       const fail=()=>{ if(token!==segToken) return; speak(fallbackText); };
       a.onerror=fail;
@@ -1485,7 +1487,7 @@ function playTreasureSegs(files, fallbackText){
 function speakTreasureHint(){
   if(!state.settings.sound) return;
   const segs=treasureGame.segs;
-  if(segs && segs.length){ playTreasureSegs(segs, treasureGame.condText); return; }
+  if(segs && segs.length){ playSegs(segs, treasureGame.condText, TREASURE_SEG_BASE); return; }
   speak(treasureGame.condText);
 }
 /* 生成一道题：恰好一个数字满足条件，干扰项都不满足 */
@@ -1597,6 +1599,7 @@ function nextMatchRound(){
     matchGame.live=new Set(MS_DIGITS[p.from]);
   }
   renderMatch();
+  speakMatchQuestion();
 }
 function makeMatchCountOptions(ans){
   const set=new Set([ans]);
@@ -1611,6 +1614,30 @@ function matchQuestionText(){
   if(g.type==='count') return '数一数：这个数字用了几根火柴棒？';
   const verb = g.type==='add' ? '添一根' : (g.type==='remove' ? '拿走一根' : '移动一根');
   return verb+'火柴棒，把 '+g.from+' 变成 '+g.to+' 吧！';
+}
+
+/* 火柴棒题目语音播报：沿用数字探险的预录片段机制（微信/QQ 内置浏览器不支持 TTS），失败回退语音合成 */
+const MATCH_SEG_BASE='audio/match/';
+const MATCH_SEG_FILES=['count_q','add_one_ba','remove_one_ba','move_one_ba','become','num0','num1','num2','num3','num4','num5','num6','num7','num8','num9'];
+let matchSegsPreloaded=false;
+function preloadMatchSegs(){
+  if(matchSegsPreloaded) return;
+  matchSegsPreloaded=true;
+  MATCH_SEG_FILES.forEach(f=>{ try{ segEl(f, MATCH_SEG_BASE); }catch(e){} });
+}
+/* 当前题目的预录片段序列 */
+function matchQuestionSegs(){
+  const g=matchGame;
+  if(g.type==='count') return ['count_q'];
+  const verb = g.type==='add' ? 'add_one_ba' : (g.type==='remove' ? 'remove_one_ba' : 'move_one_ba');
+  return [verb, 'num'+g.from, 'become', 'num'+g.to];
+}
+/* 朗读当前题目：优先预录片段，失败回退语音合成 */
+function speakMatchQuestion(){
+  if(!state.settings.sound) return;
+  const segs=matchQuestionSegs();
+  if(segs && segs.length){ playSegs(segs, matchQuestionText(), MATCH_SEG_BASE); return; }
+  speak(matchQuestionText());
 }
 function matchPromptText(){
   const g=matchGame;
@@ -1629,7 +1656,7 @@ function matchSegClickable(seg){
 function renderMatch(){
   const g=matchGame, b=$('pzBody');
   b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:14px;">🔥 第 '+g.round+' / '+g.total+' 关</div>'+
-    '<div class="ms-question">'+matchQuestionText()+'</div>'+
+    '<div class="ms-question">'+matchQuestionText()+'<button class="treasure-speak" id="msSpeak" aria-label="朗读题目" title="朗读题目">🔊</button></div>'+
     '<div class="ms-stage"><div class="ms-digit" id="msDigit"></div></div>'+
     '<div class="ms-fb" id="msFb">'+matchPromptText()+'</div>'+
     (g.type==='count' ? '<div class="ms-opts" id="msOpts"></div>' : '');
@@ -1652,6 +1679,8 @@ function renderMatch(){
       box.appendChild(btn);
     });
   }
+  const sp=b.querySelector('#msSpeak');
+  if(sp) sp.onclick=speakMatchQuestion;
 }
 function onMatchSegClick(seg){
   const g=matchGame;
@@ -1852,6 +1881,7 @@ renderLobby();
 bindEvents();
 updateTimer();
 preloadTreasureSegs();   /* 启动即预加载题目片段，确保进入题目立即播报 */
+preloadMatchSegs();
 if(isLocked()){
   lockShown=true;
   if(state.time.stopToday){
