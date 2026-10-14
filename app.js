@@ -20,6 +20,7 @@ const PUZZLES = [
   {id:'draw',   name:'开心画画板', char:'chase',   level:'P0', icon:'🎨', hint:'选一个小动物，在它的简笔画上画出线条～'},
   {id:'treasure', name:'奇妙数字探险', char:'tracker', level:'P0', icon:'💎', hint:'看提示，在数字格中找出正确的数字宝藏'},
   {id:'shoot',  name:'射击小游戏', char:'marshall', level:'P0', icon:'🔫', hint:'点一点，用水枪射爆气球，击中 10 个就胜利'},
+  {id:'stroke', name:'一笔画PK',   char:'chase',    level:'P0', icon:'✏️', hint:'从发光的起点出发，按住屏幕沿线连过去，把所有线一笔连完、不重复，比对手更快就赢啦'},
   {id:'match',  name:'火柴棒游戏', char:'skye',    level:'P0', icon:'🔥', hint:'点一点火柴棒，添一根、拿一根，把数字变个新样子～'},
   {id:'puzzle', name:'滑块拼图', char:'rubble',  level:'P0', icon:'🧩', hint:'点一点或朝空格方向滑动数字块，把 1-8 按顺序排好'},
 ];
@@ -479,6 +480,7 @@ function startPuzzle(id){
   gameActive=true;
   show('screen-puzzle');
   if(id==='shoot') startShoot();
+  else if(id==='stroke') startStroke();
   else if(id==='puzzle') startSlider();
   else if(id==='match') startMatch();
   else if(id==='memory') startMemory();
@@ -1734,6 +1736,324 @@ function matchCorrect(){
   if(fb) fb.innerHTML='<b style="color:var(--green);">'+okText+'</b>';
   setTimeout(()=>{ if(gameActive) nextMatchRound(); }, 900);
 }
+
+/* —— 一笔画PK —— */
+const STROKE_CHAR='chase';   /* 对手：阿奇（警察·画画） */
+let stroke={level:1, nodes:[], edges:[], deg:[], odd:[], path:[], drawn:new Set(), cur:-1,
+  running:false, started:false, finished:false, opWarn:false, raf:0,
+  total:0, pts:[], nr:0, C:null, ctx:null, stage:null, W:0, H:0, R:0,
+  oppTime:0, oppStart:0, goAt:0, startT:0, pointer:{x:0,y:0,down:false}, particles:[]};
+
+function startStroke(){ renderStrokeLevels(); }
+function renderStrokeLevels(){
+  const b=$('pzBody');
+  b.innerHTML='<div style="text-align:center;color:var(--muted);font-size:15px;margin-bottom:14px;">✏️ 选一个难度，和 '+CHAR_MAP[STROKE_CHAR].name+' 比一比谁先连完～</div>'+
+    '<div class="stroke-levels"></div>';
+  const wrap=b.querySelector('.stroke-levels');
+  [
+    {lv:1,name:'简单',icon:'🍀',desc:'5 个点 · 线少好上手'},
+    {lv:2,name:'中等',icon:'🌟',desc:'6 个点 · 线多一点'},
+    {lv:3,name:'困难',icon:'🔥',desc:'8 个点 · 迷宫般的线'},
+  ].forEach(d=>{
+    const card=document.createElement('button'); card.className='stroke-lvl';
+    card.innerHTML='<span class="i">'+d.icon+'</span><b>'+d.name+'</b><span class="d">'+d.desc+'</span>';
+    card.onclick=()=>{ sfx('click'); beginStroke(d.lv); };
+    wrap.appendChild(card);
+  });
+}
+/* 生成保证可一笔画完的无向图：随机生成一棵连通路径树（恰 2 个奇度点），
+   再安全加边并保证奇度点数量始终 ≤2 —— 满足欧拉通路存在条件 */
+function strokeGen(level){
+  const n = level===1?5 : level===2?6 : 8;
+  const nodes=[];
+  for(let i=0;i<n;i++){
+    const ang=-Math.PI/2 + i*(Math.PI*2/n) + (Math.random()-0.5)*0.45;
+    const rr=0.8+Math.random()*0.2;
+    nodes.push({x:Math.cos(ang)*rr, y:Math.sin(ang)*rr});
+  }
+  const edges=[]; const set=new Set(); const deg=new Array(n).fill(0);
+  const key=(a,b)=> a<b? a+'|'+b : b+'|'+a;
+  const add=(a,b)=>{ set.add(key(a,b)); edges.push([a,b]); deg[a]++; deg[b]++; };
+  const canAdd=(a,b)=>{
+    if(a===b||set.has(key(a,b))) return false;
+    deg[a]++; deg[b]++;
+    const odd=deg.reduce((s,d)=>s+(d%2),0);
+    deg[a]--; deg[b]--;
+    return odd<=2;
+  };
+  const order=shuffle(Array.from({length:n},(_,i)=>i));
+  for(let i=0;i<n-1;i++) add(order[i],order[i+1]);
+  const extra = level===1?2 : level===2?3 : 5;
+  let guard=0;
+  while(edges.length < (n-1)+extra && guard<300){
+    guard++;
+    const a=randInt(0,n-1), b=randInt(0,n-1);
+    if(canAdd(a,b)) add(a,b);
+  }
+  const odd=[]; deg.forEach((d,i)=>{ if(d%2) odd.push(i); });
+  return {nodes, edges, deg, odd, n};
+}
+function beginStroke(level){
+  gameActive=true;
+  const g=strokeGen(level);
+  const E=g.edges.length;
+  const per = level===1?2.1 : level===2?1.85 : 1.65;   /* 对手每根线耗时（秒），比孩子节奏略慢 */
+  stroke={level, nodes:g.nodes, edges:g.edges, deg:g.deg, odd:g.odd, path:[], drawn:new Set(), cur:-1,
+    running:true, started:false, finished:false, opWarn:false, raf:0,
+    total:E, pts:[], nr:0, C:null, ctx:null, stage:null, W:0, H:0, R:0,
+    oppTime:E*(per+Math.random()*0.6)*1000, oppStart:0, goAt:0, startT:Date.now(),
+    pointer:{x:0,y:0,down:false}, particles:[]};
+  renderStroke();
+  stroke.raf=requestAnimationFrame(strokeLoop);
+  strokeCountdown(()=>{
+    if(!stroke.running) return;
+    stroke.started=true; stroke.goAt=performance.now(); stroke.oppStart=performance.now();
+    strokeFb('出发！按住屏幕，沿着线连过去～');
+  });
+}
+function renderStroke(){
+  const b=$('pzBody');
+  const me=CHAR_MAP[selectedChar], op=CHAR_MAP[STROKE_CHAR];
+  const lvName=['简单','中等','困难'][stroke.level-1];
+  b.innerHTML=
+    '<div class="stroke-hud">'+
+      '<div class="stroke-race me"><span class="av">'+charImg(me,30)+'</span><span class="nm">'+me.name+'</span><div class="bar"><i id="meBar"></i></div><b id="mePct">0%</b></div>'+
+      '<div class="stroke-vs">VS</div>'+
+      '<div class="stroke-race op"><span class="av">'+charImg(op,30)+'</span><span class="nm">'+op.name+'</span><div class="bar op"><i id="opBar"></i></div><b id="opPct">0%</b></div>'+
+    '</div>'+
+    '<div class="stroke-stage" id="strokeStage"><canvas id="strokeCv"></canvas></div>'+
+    '<div class="stroke-fb" id="strokeFb">✨ <b>'+lvName+'</b> · 一共 '+stroke.total+' 条线 · 从发光起点出发</div>'+
+    '<div class="stroke-actions">'+
+      '<button class="btn ghost" id="strokeRetry">🔄 重连</button>'+
+      '<button class="btn ghost" id="strokeBack">← 选难度</button>'+
+    '</div>';
+  stroke.stage=b.querySelector('#strokeStage');
+  stroke.C=$('strokeCv');
+  const retry=b.querySelector('#strokeRetry'); if(retry) retry.onclick=strokeRetry;
+  const back=b.querySelector('#strokeBack'); if(back) back.onclick=()=>{ sfx('click'); startStroke(); };
+  strokeResize();
+  bindStrokePointer(stroke.C);
+}
+function strokeResize(){
+  const cv=stroke.C; if(!cv) return;
+  const st=stroke.stage;
+  const w=st.clientWidth||320, h=st.clientHeight||340;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  cv.style.width=w+'px'; cv.style.height=h+'px';
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  stroke.ctx=ctx; stroke.W=w; stroke.H=h;
+  const R=(Math.min(w,h)/2)-Math.min(w,h)*0.16;
+  stroke.R=R;
+  stroke.pts=stroke.nodes.map(nn=>({ x:w/2+nn.x*R*0.92, y:h/2+nn.y*R*0.92 }));
+  stroke.nr=Math.max(12,Math.min(20,R*0.16));
+}
+function bindStrokePointer(cv){
+  if(!cv) return;
+  const pt=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  cv.addEventListener('pointerdown', e=>{
+    if(!stroke.running || !stroke.started) return;
+    e.preventDefault();
+    stroke.pointer.down=true; const p=pt(e); stroke.pointer.x=p.x; stroke.pointer.y=p.y;
+    const ni=strokeNodeAt(p.x,p.y);
+    if(ni>=0) strokeNodeDown(ni);
+    if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} }
+  });
+  cv.addEventListener('pointermove', e=>{
+    const p=pt(e); stroke.pointer.x=p.x; stroke.pointer.y=p.y;
+    if(!stroke.pointer.down || !stroke.started || !stroke.running) return;
+    const ni=strokeNodeAt(p.x,p.y);
+    if(ni>=0) strokeNodeMove(ni);
+  });
+  const up=()=>{ stroke.pointer.down=false; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+}
+function strokeNodeAt(x,y){
+  let best=-1, bd=1e9;
+  stroke.pts.forEach((p,i)=>{ const d=Math.hypot(p.x-x,p.y-y); if(d<bd){ bd=d; best=i; } });
+  return bd<=stroke.nr*1.9 ? best : -1;
+}
+function strokeEdgeIdx(a,b){
+  const es=stroke.edges;
+  for(let i=0;i<es.length;i++){ const u=es[i][0], v=es[i][1]; if((u===a&&v===b)||(u===b&&v===a)) return i; }
+  return null;
+}
+function strokeNodeDown(ni){
+  const g=stroke;
+  if(g.path.length===0){
+    if(g.odd.length===2 && !g.odd.includes(ni)){ strokeFb('从闪着金圈的起点开始吧～'); strokeBump(); return; }
+    g.path.push(ni); g.cur=ni; sfx('flip');
+    const fb=$('strokeFb'); if(fb) fb.innerHTML='✨ 起点选好啦，按住沿线下一个点～';
+    return;
+  }
+  if(ni===g.cur) return;
+  const e=strokeEdgeIdx(g.cur,ni);
+  if(e===null || g.drawn.has(e)){ strokeFb('这条线走不过去哦，换一个点试试～'); strokeBump(); return; }
+  strokeTraverse(e,ni);
+}
+function strokeNodeMove(ni){
+  const g=stroke;
+  if(g.path.length===0 || ni===g.cur) return;
+  const e=strokeEdgeIdx(g.cur,ni);
+  if(e!==null && !g.drawn.has(e)) strokeTraverse(e,ni);
+}
+function strokeTraverse(e,to){
+  const g=stroke;
+  g.drawn.add(e); g.path.push(to); g.cur=to;
+  sfx('correct');
+  strokeSpark(to);
+  renderStrokeHud();
+  if(g.drawn.size>=g.total) strokeWin();
+}
+function strokeSpark(nodeIdx){
+  const p=stroke.pts[nodeIdx]; if(!p) return;
+  const cols=['#22c55e','#3b82f6','#f59e0b','#ec4899','#a855f7'];
+  for(let i=0;i<8;i++){
+    const ang=Math.random()*Math.PI*2, sp=1+Math.random()*2.2;
+    stroke.particles.push({x:p.x,y:p.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,c:cols[randInt(0,4)],r:2+Math.random()*3});
+  }
+}
+function renderStrokeHud(){
+  const pct=stroke.total? Math.round(stroke.drawn.size/stroke.total*100):0;
+  const meBar=$('meBar'), mePct=$('mePct');
+  if(meBar) meBar.style.width=pct+'%';
+  if(mePct) mePct.textContent=pct+'%';
+  const fb=$('strokeFb');
+  if(fb) fb.innerHTML='✨ 已连 <b>'+stroke.drawn.size+'</b> / '+stroke.total+' 条线';
+}
+function strokeOppProg(){
+  if(!stroke.started || !stroke.oppTime) return 0;
+  return Math.min(1,(performance.now()-stroke.oppStart)/stroke.oppTime);
+}
+function strokeLoop(){
+  if(!stroke.running) return;
+  stroke.raf=requestAnimationFrame(strokeLoop);
+  if(!gameActive){ stroke.running=false; return; }
+  if(stroke.started){
+    const oppProg=strokeOppProg();
+    const opBar=$('opBar'), opPct=$('opPct');
+    if(opBar) opBar.style.width=Math.round(oppProg*100)+'%';
+    if(opPct) opPct.textContent=Math.round(oppProg*100)+'%';
+    if(oppProg>0.72 && !stroke.opWarn){ stroke.opWarn=true; const fb=$('strokeFb'); if(fb) fb.innerHTML='⚠️ 对手快连完啦，加油！'; }
+    if(oppProg>=1){ strokeLose(); return; }
+  }
+  stroke.particles=stroke.particles.filter(p=>p.life>0);
+  stroke.particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vx*=0.98; p.vy=p.vy*0.98+0.04; p.life-=0.03; });
+  strokeDraw();
+}
+function strokeCountdown(cb){
+  const st=stroke.stage; if(!st){ cb(); return; }
+  const el=document.createElement('div'); el.className='stroke-count';
+  st.appendChild(el);
+  const seq=['3','2','1','GO!'];
+  let i=0;
+  const step=()=>{
+    if(i>=seq.length){ el.remove(); cb(); return; }
+    el.textContent=seq[i];
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    if(i<3){ if(state.settings.sound) playTone(392+i*131,0.16,'sine',0.22,0); }
+    else { if(state.settings.sound){ playTone(880,0.28,'sine',0.24,0); playTone(1175,0.3,'sine',0.2,0.12); } }
+    i++; setTimeout(step,620);
+  };
+  step();
+}
+function strokeDraw(){
+  const g=stroke, ctx=g.ctx; if(!ctx) return;
+  const W=g.W, H=g.H, pts=g.pts;
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<g.edges.length;i++){
+    const a=pts[g.edges[i][0]], b=pts[g.edges[i][1]];
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    if(g.drawn.has(i)){
+      ctx.strokeStyle='#22c55e'; ctx.lineWidth=g.nr*0.42; ctx.shadowColor='rgba(34,197,94,.85)'; ctx.shadowBlur=9; ctx.globalAlpha=1;
+    } else {
+      ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=g.nr*0.34; ctx.shadowBlur=0; ctx.globalAlpha=0.9;
+    }
+    ctx.stroke();
+    ctx.shadowBlur=0; ctx.globalAlpha=1;
+  }
+  if(g.pointer.down && g.cur>=0 && g.started){
+    const c=pts[g.cur];
+    ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(g.pointer.x,g.pointer.y);
+    ctx.strokeStyle='rgba(59,130,246,.55)'; ctx.lineWidth=g.nr*0.32; ctx.setLineDash([6,5]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  for(let i=0;i<pts.length;i++){
+    const p=pts[i];
+    const isCur=i===g.cur;
+    const isStart=g.path.length>0 && i===g.path[0];
+    const isOdd=g.path.length===0 && g.odd.includes(i);
+    ctx.beginPath(); ctx.arc(p.x,p.y,g.nr,0,Math.PI*2);
+    ctx.fillStyle= isCur?'#3b82f6':(isStart?'#f59e0b':'#ffffff');
+    ctx.fill();
+    ctx.lineWidth=3;
+    ctx.strokeStyle= isCur?'#1f6feb':(isStart?'#f59e0b':(isOdd?'#f59e0b':'#94a3b8'));
+    ctx.stroke();
+    if((isOdd||isStart)&&!isCur){
+      ctx.beginPath(); ctx.arc(p.x,p.y,g.nr+6,0,Math.PI*2);
+      ctx.strokeStyle='rgba(245,158,11,.7)'; ctx.lineWidth=2.5; ctx.setLineDash([4,4]);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  g.particles.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.c; ctx.globalAlpha=Math.max(0,p.life); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+function strokeRetry(){
+  if(!stroke.running) return;
+  stroke.path=[]; stroke.drawn=new Set(); stroke.cur=-1; stroke.particles=[];
+  stroke.opWarn=false; stroke.started=false; stroke.pointer.down=false;
+  renderStrokeHud();
+  const opBar=$('opBar'), opPct=$('opPct');
+  if(opBar) opBar.style.width='0%'; if(opPct) opPct.textContent='0%';
+  sfx('click');
+  stroke.started=true; stroke.goAt=performance.now(); stroke.oppStart=performance.now();
+  const fb=$('strokeFb'); if(fb) fb.innerHTML='✨ 出发！从发光起点重新连一遍～';
+}
+function strokeWin(){
+  if(!stroke.running) return;
+  stroke.running=false; stroke.finished=true;
+  cancelAnimationFrame(stroke.raf);
+  gameActive=false;
+  const used=((performance.now()-stroke.goAt)/1000).toFixed(1);
+  const cc=CHAR_MAP[STROKE_CHAR], sel=CHAR_MAP[selectedChar];
+  addSticker(cc.id);
+  addRecord({type:'益智小游戏', label:'一笔画PK', level:'L'+stroke.level+' · '+['简单','中等','困难'][stroke.level-1], score:100, accuracy:100, duration:Math.round((Date.now()-stroke.startT)/1000)});
+  sfxWin(); confetti(); voice(sel.id,'win','你赢啦，真棒！');
+  renderStickers(); updateStickerPill();
+  const b=$('pzBody');
+  b.innerHTML='<div class="result-box">'+
+    '<div style="font-size:60px;">🏆</div>'+
+    '<div style="font-size:22px;font-weight:800;">你赢啦！比 '+cc.name+' 更快连完～</div>'+
+    '<div style="color:var(--muted);font-size:14px;margin:6px 0;">用时 '+used+' 秒 · 连完 '+stroke.total+' 条线</div>'+
+    '<div class="sticker-got" style="display:inline-flex;">🎁 获得 '+cc.name+' 贴纸 ×1</div>'+
+    '<div class="row" style="justify-content:center;margin-top:16px;gap:10px;">'+
+      '<button class="btn primary" onclick="beginStroke('+stroke.level+')">再比一局</button>'+
+      '<button class="btn ghost" onclick="startStroke()">选难度</button>'+
+      '<button class="btn ghost" onclick="backPuzzleList()">返回列表</button></div></div>';
+}
+function strokeLose(){
+  if(!stroke.running) return;
+  stroke.running=false; stroke.finished=true;
+  cancelAnimationFrame(stroke.raf);
+  gameActive=false;
+  sfxWrong();
+  const op=CHAR_MAP[STROKE_CHAR];
+  const b=$('pzBody');
+  b.innerHTML='<div class="result-box">'+
+    '<div style="font-size:60px;">😅</div>'+
+    '<div style="font-size:22px;font-weight:800;">'+op.name+' 先连完啦！</div>'+
+    '<div style="color:var(--muted);font-size:14px;margin:6px 0;">你连了 '+stroke.drawn.size+' / '+stroke.total+' 条线，就差一点点～</div>'+
+    '<div class="row" style="justify-content:center;margin-top:16px;gap:10px;">'+
+      '<button class="btn primary" onclick="beginStroke('+stroke.level+')">再比一局</button>'+
+      '<button class="btn ghost" onclick="startStroke()">选难度</button>'+
+      '<button class="btn ghost" onclick="backPuzzleList()">返回列表</button></div></div>';
+}
+function strokeFb(text){ const f=$('strokeFb'); if(f) f.innerHTML=text; }
+function strokeBump(){ const st=stroke.stage; if(st){ st.classList.remove('bump'); void st.offsetWidth; st.classList.add('bump'); } sfxWrong(); }
 
 /* ============ 家长中心 ============ */
 function renderParentTabs(){
